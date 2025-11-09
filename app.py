@@ -15,6 +15,16 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+import re
+
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+import re
+
 # Generating Formatted Document
 def create_formatted_agreement(draft_text, tenant):
     doc = Document()
@@ -32,27 +42,47 @@ def create_formatted_agreement(draft_text, tenant):
     subtitle.runs[0].font.size = Pt(12)
     doc.add_paragraph()  # spacing
 
-    # === Body ===
-    normal_style = doc.styles['Normal']
-    normal_style.font.name = 'Times New Roman'
+    # === Body Style ===
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "Times New Roman"
     normal_style.font.size = Pt(12)
 
-    for para in draft_text.split("\n"):
-        para = para.strip()
-        if not para:
-            continue
-        p = doc.add_paragraph(para)
-        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        p.paragraph_format.space_after = Pt(6)
-        p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    # === Clean and process text ===
+    clean_text = re.sub(r"#+", "", draft_text)           # remove markdown ## headings
+    clean_text = re.sub(r"\*\*", "", clean_text)         # remove ** markers
+    lines = [ln.strip() for ln in clean_text.split("\n") if ln.strip()]
 
-        # make likely headings bold
-        if para.endswith(":") or para.lower().startswith("clause"):
-            p.runs[0].bold = True
+    for line in lines:
+        # === Detect and style headings ===
+        if re.match(r"^(WHEREAS|NOW THEREFORE|IN WITNESS|THIS RENTAL AGREEMENT|BETWEEN|AND|IMPORTANT NOTES|SIGNED)", line, re.IGNORECASE):
+            p = doc.add_paragraph(line)
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            r = p.runs[0]
+            r.bold = True
+            p.paragraph_format.space_before = Pt(8)
+            p.paragraph_format.space_after = Pt(4)
+        elif re.match(r"^[0-9]+\.", line):  # numbered clauses (e.g., 1., 2.)
+            p = doc.add_paragraph(line)
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            p.paragraph_format.left_indent = Inches(0.3)  # indent numbered clauses
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        elif line.startswith("*"):  # bulleted points
+            clean = line.lstrip("* ").strip()
+            p = doc.add_paragraph(clean, style="List Bullet")
+            p.paragraph_format.left_indent = Inches(0.6)
+            p.paragraph_format.space_after = Pt(2)
+        else:
+            p = doc.add_paragraph(line)
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            p.paragraph_format.left_indent = Inches(0.25)
+            p.paragraph_format.space_after = Pt(6)
+            p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 
-    # === Signature Page ===
+    # === Signature Section ===
     doc.add_page_break()
-    doc.add_paragraph("IN WITNESS WHEREOF, the parties hereto have executed this Agreement.", style='Normal')
+    doc.add_paragraph("IN WITNESS WHEREOF, the parties hereto have executed this Agreement.", style="Normal")
 
     table = doc.add_table(rows=2, cols=2)
     table.autofit = True
