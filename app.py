@@ -10,6 +10,59 @@ import docx
 from docx import Document
 from io import BytesIO
 
+# For better formatting 
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+
+# Generating Formatted Document
+def create_formatted_agreement(draft_text, tenant):
+    doc = Document()
+
+    # === Title ===
+    title = doc.add_paragraph("RENTAL AGREEMENT")
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.runs[0]
+    run.bold = True
+    run.font.name = 'Times New Roman'
+    run.font.size = Pt(16)
+
+    subtitle = doc.add_paragraph("(Under the Model Tenancy Act, 2021)")
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.runs[0].font.size = Pt(12)
+    doc.add_paragraph()  # spacing
+
+    # === Body ===
+    normal_style = doc.styles['Normal']
+    normal_style.font.name = 'Times New Roman'
+    normal_style.font.size = Pt(12)
+
+    for para in draft_text.split("\n"):
+        para = para.strip()
+        if not para:
+            continue
+        p = doc.add_paragraph(para)
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.space_after = Pt(6)
+        p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+        # make likely headings bold
+        if para.endswith(":") or para.lower().startswith("clause"):
+            p.runs[0].bold = True
+
+    # === Signature Page ===
+    doc.add_page_break()
+    doc.add_paragraph("IN WITNESS WHEREOF, the parties hereto have executed this Agreement.", style='Normal')
+
+    table = doc.add_table(rows=2, cols=2)
+    table.autofit = True
+    table.cell(0, 0).text = "By the Landlord:\n\n(Signature)\n\nVivek Bhadra"
+    table.cell(0, 1).text = f"By the Tenant:\n\n(Signature)\n\n{tenant}"
+
+    filename = f"Formatted_Rental_{tenant}.docx"
+    doc.save(filename)
+    return filename
+
 # === SmartLegal Rental Assistant ===
 
 # Load environment variables
@@ -82,24 +135,44 @@ with tab1:
         st.text_area("Preview", draft, height=400)
 
         # Create Word file and show download option
-        doc = Document()
-        for line in draft.split("\n"):
-            doc.add_paragraph(line)
-        bio = BytesIO()
-        doc.save(bio)
-        bio.seek(0)
+        #doc = Document()
+        #for line in draft.split("\n"):
+         #   doc.add_paragraph(line)
+        #bio = BytesIO()
+        #doc.save(bio)
+        #bio.seek(0)
 
-        st.download_button(
-            label="Download Word File",
-            data=bio,
-            file_name=f"Rental_{tenant}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        #st.download_button(
+         #   label="Download Word File",
+          #  data=bio,
+           # file_name=f"Rental_{tenant}.docx",
+            #mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        #)
+        file_name = create_formatted_agreement(draft, tenant)
 
+        st.success("Agreement Drafted Successfully!")
+        with open(file_name, "rb") as f:
+            st.download_button(
+                label="Download Formatted Word File",
+                data=f,
+                file_name=file_name,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        #st.text_area("Preview", draft, height=400)
+        st.text_area("Preview", draft, height=400, key="draft_preview")
+
+
+# === TAB 2: Review & Fix Agreement ===
 # === TAB 2: Review & Fix Agreement ===
 with tab2:
     st.header("Review & Suggest Amendments")
-    uploaded = st.file_uploader("Upload PDF / DOCX / TXT", type=["pdf","docx","txt"])
+
+    uploaded = st.file_uploader(
+        "Upload PDF / DOCX / TXT", 
+        type=["pdf", "docx", "txt"], 
+        key="review_uploader"
+    )
+
     if uploaded:
         if uploaded.type == "application/pdf":
             text = " ".join([p.extract_text() or "" for p in PdfReader(uploaded).pages])
@@ -108,21 +181,26 @@ with tab2:
             text = "\n".join([p.text for p in doc.paragraphs])
         else:
             text = uploaded.read().decode("utf-8")
-        
-        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        # ✅ Use the working model you verified earlier
+        model = genai.GenerativeModel("models/gemini-2.0-flash")
+
+        # Summary
         summary = model.generate_content(f"Summarize this rental agreement in 100 words: {text[:4000]}").text
         st.write("### Summary")
-        st.write(summary)
-        
+        st.text_area("Summary Preview", summary, height=150, key="review_summary")
+
+        # Risk level
         risk = risk_pipe(text[:10000])[0]
         st.write("### Risk Level")
         st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
-        
+
+        # Suggested Amendments
         amendments = model.generate_content(
             f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
         ).text
         st.write("### Suggested Amendments")
-        st.warning(amendments)
+        st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
 
 # === SIDEBAR: Voice to Clause ===
 with st.sidebar:
