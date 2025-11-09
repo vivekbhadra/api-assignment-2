@@ -131,14 +131,17 @@ tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
 with tab1:
     st.header("Create New Rental Agreement")
 
-    landlord = st.text_input("Landlord Name")
-    tenant = st.text_input("Tenant Name")
-    rent = st.number_input("Monthly Rent ₹", min_value=1000)
-    deposit = st.number_input("Security Deposit ₹", min_value=0)
-    address = st.text_area("Property Address")
-    start = st.date_input("Start Date")
-    months = st.selectbox("Duration", ["11 months", "2 years", "3 years"])
-    amenities = st.text_area("Amenities (optional)")
+    # === Input Fields ===
+    landlord = st.text_input("Landlord Name", key="landlord_name")
+    tenant = st.text_input("Tenant Name", key="tenant_name")
+    rent = st.number_input("Monthly Rent ₹", min_value=1000, key="rent_amount")
+    deposit = st.number_input("Security Deposit ₹", min_value=0, key="deposit_amount")
+    address = st.text_area("Property Address", key="property_address")
+    start = st.date_input("Start Date", key="lease_start_date")
+    months = st.selectbox("Duration", ["11 months", "2 years", "3 years"], key="lease_duration")
+    amenities = st.text_area("Amenities (optional)", key="amenities_text")
+
+    # === Submit Button ===
     submitted = st.button("Generate Agreement")
 
     if submitted:
