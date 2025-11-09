@@ -11,19 +11,21 @@ from docx import Document
 from io import BytesIO
 
 # For better formatting 
-from docx import Document
-from docx.shared import Pt
+#from docx import Document
+from docx.shared import Pt, Inches 
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-import re
+#from docx import Document
+#from docx.shared import Pt
+#from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+#import re
 
-from docx import Document
-from docx.shared import Pt, Inches
+#from docx import Document
+#from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 import re
+# For generating the metrics
+import time
 
 # Generating Formatted Document
 def create_formatted_agreement(draft_text, tenant):
@@ -155,8 +157,16 @@ with tab1:
 
         try:
             model = genai.GenerativeModel("models/gemini-2.0-flash")
+            start = time.time()
             resp = model.generate_content(prompt)
-            draft = resp.text or "No content returned by Gemini."
+            end = time.time()
+
+            draft = resp.text
+            latency = round(end - start, 2)
+            token_count = len(prompt.split()) + len(draft.split())  # Approx tokens
+            cost = round(token_count * 0.0005 / 1000, 6)  # Example Gemini rate
+
+            st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
         except Exception as e:
             st.error(f"Gemini API error: {e}")
             draft = "Unable to generate agreement text. Please try again later."
@@ -164,20 +174,6 @@ with tab1:
         st.success("Agreement Drafted Successfully!")
         st.text_area("Preview", draft, height=400)
 
-        # Create Word file and show download option
-        #doc = Document()
-        #for line in draft.split("\n"):
-         #   doc.add_paragraph(line)
-        #bio = BytesIO()
-        #doc.save(bio)
-        #bio.seek(0)
-
-        #st.download_button(
-         #   label="Download Word File",
-          #  data=bio,
-           # file_name=f"Rental_{tenant}.docx",
-            #mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        #)
         file_name = create_formatted_agreement(draft, tenant)
 
         st.success("Agreement Drafted Successfully!")
@@ -193,17 +189,17 @@ with tab1:
 
 
 # === TAB 2: Review & Fix Agreement ===
-# === TAB 2: Review & Fix Agreement ===
 with tab2:
     st.header("Review & Suggest Amendments")
 
     uploaded = st.file_uploader(
-        "Upload PDF / DOCX / TXT", 
-        type=["pdf", "docx", "txt"], 
+        "Upload PDF / DOCX / TXT",
+        type=["pdf", "docx", "txt"],
         key="review_uploader"
     )
 
     if uploaded:
+        # === Extract text from uploaded document ===
         if uploaded.type == "application/pdf":
             text = " ".join([p.extract_text() or "" for p in PdfReader(uploaded).pages])
         elif uploaded.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -212,25 +208,53 @@ with tab2:
         else:
             text = uploaded.read().decode("utf-8")
 
-        # ✅ Use the working model you verified earlier
+        # === Load verified Gemini model ===
         model = genai.GenerativeModel("models/gemini-2.0-flash")
 
-        # Summary
-        summary = model.generate_content(f"Summarize this rental agreement in 100 words: {text[:4000]}").text
-        st.write("### Summary")
+        # ===  Summary Generation with LLMOps Metrics ===
+        import time
+        start = time.time()
+        summary = model.generate_content(
+            f"Summarize this rental agreement in 100 words:\n{text[:4000]}"
+        ).text
+        end = time.time()
+        latency_summary = round(end - start, 2)
+        tokens_summary = len(summary.split()) + len(text.split()[:4000])
+        cost_summary = round(tokens_summary * 0.0005 / 1000, 6)
+
+        st.subheader("Summary")
         st.text_area("Summary Preview", summary, height=150, key="review_summary")
+        st.caption(f" Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
 
-        # Risk level
+        # === Risk Level (BERT classification) ===
         risk = risk_pipe(text[:10000])[0]
-        st.write("### Risk Level")
+        st.subheader("Risk Level")
         st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+        if risk['label'] == "SAFE":
+            st.caption("Classified as SAFE – no major missing clauses.")
+        else:
+            st.caption("Classified as RISKY – review required.")
 
-        # Suggested Amendments
+        # === Amendment Suggestions with LLMOps Metrics ===
+        start = time.time()
         amendments = model.generate_content(
             f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
         ).text
-        st.write("### Suggested Amendments")
+        end = time.time()
+        latency_amend = round(end - start, 2)
+        tokens_amend = len(amendments.split()) + len(text.split()[:5000])
+        cost_amend = round(tokens_amend * 0.0005 / 1000, 6)
+
+        st.subheader("Suggested Amendments")
         st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
+        st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
+
+        # === Track query success ===
+        if "success_count" not in st.session_state:
+            st.session_state.success_count = 0
+        st.session_state.success_count += 1
+        st.sidebar.metric("Total Successful Queries", st.session_state.success_count)
+
 
 # === SIDEBAR: Voice to Clause ===
 with st.sidebar:
@@ -244,4 +268,3 @@ with st.sidebar:
             messages=[{"role":"user","content":f"Convert to legal clause (Model Tenancy Act 2021): {transcript}"}]
         ).choices[0].message.content
         st.success(clause)
-
