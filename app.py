@@ -131,18 +131,19 @@ tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
 with tab1:
     st.header("Create New Rental Agreement")
 
-    # === Input Fields ===
-    landlord = st.text_input("Landlord Name", key="landlord_name")
-    tenant = st.text_input("Tenant Name", key="tenant_name")
-    rent = st.number_input("Monthly Rent ₹", min_value=1000, key="rent_amount")
-    deposit = st.number_input("Security Deposit ₹", min_value=0, key="deposit_amount")
-    address = st.text_area("Property Address", key="property_address")
-    start = st.date_input("Start Date", key="lease_start_date")
-    months = st.selectbox("Duration", ["11 months", "2 years", "3 years"], key="lease_duration")
-    amenities = st.text_area("Amenities (optional)", key="amenities_text")
+    # === Input Form ===
+    with st.form("rental_form", clear_on_submit=False):
+        landlord = st.text_input("Landlord Name", key="landlord_name")
+        tenant = st.text_input("Tenant Name", key="tenant_name")
+        rent = st.number_input("Monthly Rent ₹", min_value=1000, key="rent_amount")
+        deposit = st.number_input("Security Deposit ₹", min_value=0, key="deposit_amount")
+        address = st.text_area("Property Address", key="property_address")
+        start = st.date_input("Start Date", key="lease_start_date")
+        months = st.selectbox("Duration", ["11 months", "2 years", "3 years"], key="lease_duration")
+        amenities = st.text_area("Amenities (optional)", key="amenities_text")
 
-    # === Submit Button ===
-    submitted = st.button("Generate Agreement")
+        # === Submit Form ===
+        submitted = st.form_submit_button("Generate Agreement")
 
     if submitted:
         prompt = f"""
@@ -160,16 +161,34 @@ with tab1:
 
         try:
             model = genai.GenerativeModel("models/gemini-2.0-flash")
-            start = time.time()
-            resp = model.generate_content(prompt)
-            end = time.time()
+            start_time = time.time()
+            response = model.generate_content(prompt)
+            end_time = time.time()
 
-            draft = resp.text
-            latency = round(end - start, 2)
-            token_count = len(prompt.split()) + len(draft.split())  # Approx tokens
-            cost = round(token_count * 0.0005 / 1000, 6)  # Example Gemini rate
+            # === Extract and clean the model output ===
+            draft = response.text.strip()
+
+            # Remove conversational prefixes like "Sure," or "Okay, here..."
+            unwanted_prefixes = [
+                "Sure, here",
+                "Okay, here",
+                "Here is",
+                "Here’s",
+                "Below is",
+                "This is"
+            ]
+            for prefix in unwanted_prefixes:
+                if draft.lower().startswith(prefix.lower()):
+                    draft = draft.split("\n", 1)[-1].strip()
+                    break
+
+            # === LLMOps Metrics ===
+            latency = round(end_time - start_time, 2)
+            token_count = len(prompt.split()) + len(draft.split())   # Approx token count
+            cost = round(token_count * 0.0005 / 1000, 6)             # Approx cost in £
 
             st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
+
         except Exception as e:
             st.error(f"Gemini API error: {e}")
             draft = "Unable to generate agreement text. Please try again later."
