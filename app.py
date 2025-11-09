@@ -20,10 +20,20 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Load fine-tuned model (Hugging Face)
 @st.cache_resource
 def load_risk_model():
-    return pipeline("text-classification",
-                    model="yourusername/india-rental-simple-bert",
-                    tokenizer="yourusername/india-rental-simple-bert",
-                    truncation=True, max_length=512)
+    """
+    Loads the Legal Risk Classification model.
+    Uses a reliable public model for this assignment.
+    """
+    from transformers import pipeline
+
+    pipe = pipeline(
+        "text-classification",
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        tokenizer="distilbert-base-uncased-finetuned-sst-2-english",
+        truncation=True,
+        max_length=512,
+    )
+    return pipe
 
 risk_pipe = load_risk_model()
 
@@ -35,49 +45,56 @@ tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
 # === TAB 1: Draft New Agreement ===
 with tab1:
     st.header("Create New Rental Agreement")
-    with st.form("draft_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            landlord = st.text_input("Landlord Name")
-            tenant = st.text_input("Tenant Name")
-            rent = st.number_input("Monthly Rent ₹", min_value=1000)
-            deposit = st.number_input("Security Deposit ₹", min_value=0)
-        with c2:
-            address = st.text_area("Property Address")
-            start = st.date_input("Start Date")
-            months = st.selectbox("Duration", ["11 months", "2 years", "3 years"])
-        
-        amenities = st.text_area("Amenities (optional)")
-        submitted = st.form_submit_button("Generate Agreement")
-        
-        if submitted:
-            prompt = f"""
-            Draft a complete rental agreement under Model Tenancy Act 2021 for:
-            Landlord: {landlord}
-            Tenant: {tenant}
-            Property: {address}
-            Rent: ₹{rent}/month
-            Deposit: ₹{deposit}
-            Duration: {months} from {start}
-            Amenities: {amenities}
-            Include all mandatory clauses: registration, police verification, maintenance, eviction.
-            """
-            resp = openai.chat.completions.create(
-                model="gpt-4o-mini", messages=[{"role":"user","content":prompt}], temperature=0.3
-            )
-            draft = resp.choices[0].message.content
-            
-            doc = Document()
-            for line in draft.split("\n"):
-                doc.add_paragraph(line)
-            bio = BytesIO()
-            doc.save(bio)
-            bio.seek(0)
-            
-            st.success("Agreement Ready!")
-            st.download_button("Download Word File", bio, f"Rental_{tenant}.docx", 
-                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            st.text_area("Preview", draft, height=400)
+
+    landlord = st.text_input("Landlord Name")
+    tenant = st.text_input("Tenant Name")
+    rent = st.number_input("Monthly Rent ₹", min_value=1000)
+    deposit = st.number_input("Security Deposit ₹", min_value=0)
+    address = st.text_area("Property Address")
+    start = st.date_input("Start Date")
+    months = st.selectbox("Duration", ["11 months", "2 years", "3 years"])
+    amenities = st.text_area("Amenities (optional)")
+    submitted = st.button("Generate Agreement")
+
+    if submitted:
+        prompt = f"""
+        Draft a complete rental agreement under the Model Tenancy Act 2021 with:
+        Landlord: {landlord}
+        Tenant: {tenant}
+        Property: {address}
+        Rent: ₹{rent}/month
+        Deposit: ₹{deposit}
+        Duration: {months}, starting from {start}.
+        Amenities: {amenities if amenities else 'None'}
+        Include all mandatory clauses such as registration, police verification,
+        maintenance, notice period, and eviction.
+        """
+
+        try:
+            model = genai.GenerativeModel("models/gemini-2.0-flash")
+            resp = model.generate_content(prompt)
+            draft = resp.text or "No content returned by Gemini."
+        except Exception as e:
+            st.error(f"Gemini API error: {e}")
+            draft = "Unable to generate agreement text. Please try again later."
+
+        st.success("Agreement Drafted Successfully!")
+        st.text_area("Preview", draft, height=400)
+
+        # Create Word file and show download option
+        doc = Document()
+        for line in draft.split("\n"):
+            doc.add_paragraph(line)
+        bio = BytesIO()
+        doc.save(bio)
+        bio.seek(0)
+
+        st.download_button(
+            label="Download Word File",
+            data=bio,
+            file_name=f"Rental_{tenant}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
 # === TAB 2: Review & Fix Agreement ===
 with tab2:
