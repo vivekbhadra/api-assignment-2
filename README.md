@@ -88,7 +88,7 @@ When setup completes, a file `/home/ubuntu/READY.txt` will be created.
 
 ---
 
-## ☁️ Step 3 — Connect to EC2 Instance
+## Step 3 — Connect to EC2 Instance
 
 Once the EC2 instance is running, connect to it from your local terminal:
 
