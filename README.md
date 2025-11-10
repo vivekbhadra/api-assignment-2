@@ -194,14 +194,13 @@ source rentalenv/bin/activate
 cd ~/api-assignment-2
 streamlit run app.py --server.port=8501 --server.address=0.0.0.0
 ```
-Developer Notes
+### Developer Notes
+Region: eu-west-2 (London)  
+Recommended Instance Type: t4g.large (ARM)  
+Default Port: 8501  
+App Directory: /home/ubuntu/api-assignment-2  
 
-Region: eu-west-2 (London)
-Recommended Instance Type: t4g.large (ARM)
-Default Port: 8501
-App Directory: /home/ubuntu/api-assignment-2
-
-View Logs:  
+View Logs:    
 ```
-tail -f ~/.streamlit/logs/*
+tail -f ~/.streamlit/logs/*  
 ```
