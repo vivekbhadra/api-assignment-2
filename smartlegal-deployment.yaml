@@ -1,0 +1,33 @@
+# smartlegal-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartlegal-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smartlegal
+  template:
+    metadata:
+      labels:
+        app: smartlegal
+    spec:
+      containers:
+      - name: smartlegal
+        image: 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: PORT
+          value: "8501"
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: smartlegal-env
+              key: GEMINI_API_KEY
+        envFrom:
+        - secretRef:
+            name: smartlegal-env
+

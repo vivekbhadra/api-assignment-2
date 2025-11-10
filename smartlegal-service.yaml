@@ -1,0 +1,14 @@
+# smartlegal-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartlegal-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: smartlegal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8501
+
