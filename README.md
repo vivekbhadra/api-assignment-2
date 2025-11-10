@@ -217,10 +217,14 @@ tail -f ~/.streamlit/logs/*
 - Responsible for **project video recording**.  
 - Prepare recording **setup and environment**.  
 - Test the recording on personal setup to ensure readiness.
+- Once the project is completed, you will be in charge of metrics collection and recording with screenshots and log traces as applicable.
 
 ## 3. Swagat
 - In charge of **end-to-end application testing**.  
 - Verify full functionality, workflows, and integration.
+- Create Test Cases, plan and document the test cases with screenshots and logs where applicable.
+- Check CloudWatch Logs and try capturing CloudWatch logs as evidence of the sequence of things happening during the execution.
+- Create Flow diagram from the CloudWatch Logs
 
 ## 4. Sidharth
 - Responsible for **application aesthetics and UI polish**:
