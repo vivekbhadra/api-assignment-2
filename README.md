@@ -118,7 +118,7 @@ cd ~/api-assignment-2
 nano .env
 ```
 
-Create your API keys from here: 
+Create your API keys from here:   
 https://aistudio.google.com/app/api-keys    
 https://platform.openai.com/api-keys    
 
