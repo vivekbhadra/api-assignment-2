@@ -27,7 +27,7 @@ All steps are tested on **Ubuntu 22.04 LTS (t4g.large / t3.medium)** in the **eu
 
 ---
 
-## Step 1 — Launch AWS EC2 Instance
+## Step 1: Launch AWS EC2 Instance
 
 ### Open AWS Console → EC2 → Launch Instance
 - **Name:** `SmartLegalRentalApp`
@@ -45,7 +45,7 @@ All steps are tested on **Ubuntu 22.04 LTS (t4g.large / t3.medium)** in the **eu
 
 ---
 
-## Step 2 — Add User Data Script
+## Step 2: Add User Data Script
 
 Scroll to **Advanced Details → User Data** and paste the following script:
 
@@ -88,7 +88,7 @@ When setup completes, a file `/home/ubuntu/READY.txt` will be created.
 
 ---
 
-## Step 3 — Connect to EC2 Instance
+## Step 3: Connect to EC2 Instance
 
 Once the EC2 instance is running, connect to it from your local terminal:
 
@@ -110,7 +110,7 @@ Expected Output
 ```
 SmartLegal Rental Assistant setup complete!
 ```
-## Step 4 — Set Up Environment Variables
+## Step 4: Set Up Environment Variables
 
 Inside your EC2 instance, navigate to the app directory and create a .env file:  
 ```
@@ -130,7 +130,7 @@ OPENAI_API_KEY=<your_openai_api_key>
 
 Save and exit (Ctrl + O, Enter, then Ctrl + X).  
 
-## Step 5 — Activate Virtual Environment
+## Step 5: Activate Virtual Environment
 
 Activate the Python virtual environment:  
 ```
@@ -147,7 +147,7 @@ Expected Output
 ```
 /home/ubuntu/api-assignment-2/rentalenv/bin/python
 ```
-## Step 6 — Run the Application
+## Step 6: Run the Application
 
 Start the Streamlit app:
 ```
@@ -162,7 +162,7 @@ URL: http://0.0.0.0:8501
 
 Network URL: http://<EC2_PUBLIC_IP>:8501
 ```
-## Step 7 — Access the App in Browser
+## Step 7: Access the App in Browser
 
 On your local computer, open a web browser and visit:
 ```
@@ -181,7 +181,7 @@ You should now see the **SmartLegal Rental Assistant** interface with:
 
 ---
 
-# Step 8 — Stop or Restart the App
+# Step 8: Stop or Restart the App
 
 To stop the running Streamlit process:
 
