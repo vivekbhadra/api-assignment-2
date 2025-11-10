@@ -142,7 +142,7 @@ which python
 Expected Output  
 ```
 /home/ubuntu/api-assignment-2/rentalenv/bin/python
-
+```
 ## Step 6 — Run the Application
 
 Start the Streamlit app:
