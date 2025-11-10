@@ -1,4 +1,4 @@
-# 🧾 SmartLegal Rental Assistant – AWS EC2 Deployment (Complete Setup)
+# SmartLegal Rental Assistant – AWS EC2 Deployment (Complete Setup)
 
 ### Version: November 2025  
 **Author:** Vivek Bhadra  
@@ -7,7 +7,7 @@
 
 ---
 
-## 🌐 Overview
+## Overview
 
 The **SmartLegal Rental Assistant** is an AI-powered web application built with Streamlit.  
 It helps automate rental agreement drafting and legal review under India’s **Model Tenancy Act 2021**.
@@ -17,7 +17,7 @@ All steps are tested on **Ubuntu 22.04 LTS (t4g.large / t3.medium)** in the **eu
 
 ---
 
-## ⚙️ Features
+## Features
 
 1. **Draft New Rental Agreement** – Generated using Gemini 2.0 Flash (Google AI).  
 2. **Review & Suggest Amendments** – Legal validation powered by Gemini + BERT.  
@@ -27,9 +27,9 @@ All steps are tested on **Ubuntu 22.04 LTS (t4g.large / t3.medium)** in the **eu
 
 ---
 
-## 🧱 Step 1 — Launch AWS EC2 Instance
+## Step 1 — Launch AWS EC2 Instance
 
-### 1️⃣ Open AWS Console → EC2 → Launch Instance
+### Open AWS Console → EC2 → Launch Instance
 - **Name:** `SmartLegalRentalApp`
 - **AMI:** `Ubuntu Server 22.04 LTS (64-bit, x86 or ARM)`
 - **Instance Type:** `t4g.large` (recommended) or `t3.medium`
@@ -45,7 +45,7 @@ All steps are tested on **Ubuntu 22.04 LTS (t4g.large / t3.medium)** in the **eu
 
 ---
 
-## 🪣 Step 2 — Add User Data Script
+## Step 2 — Add User Data Script
 
 Scroll to **Advanced Details → User Data** and paste the following script:
 
