@@ -95,4 +95,103 @@ Once the EC2 instance is running, connect to it from your local terminal:
 ```bash
 cd ~/Downloads
 chmod 400 SmartLegalKey.pem
-ssh -i SmartLegalKey.pem ubuntu@<EC2_PUBLIC_IP> 
+ssh -i SmartLegalKey.pem ubuntu@<EC2_PUBLIC_IP>
+
+Example
+ssh -i SmartLegalKey.pem ubuntu@18.133.78.52
+
+Check Readiness
+cat /home/ubuntu/READY.txt
+
+
+Expected Output
+
+SmartLegal Rental Assistant setup complete!
+
+🧩 Step 4 — Set Up Environment Variables
+
+Inside your EC2 instance, navigate to the app directory and create a .env file:
+
+cd ~/api-assignment-2
+nano .env
+
+
+Add your API keys:
+
+GEMINI_API_KEY=<your_gemini_api_key>
+OPENAI_API_KEY=<your_openai_api_key>
+
+
+Save and exit (Ctrl + O, Enter, then Ctrl + X).
+
+🧱 Step 5 — Activate Virtual Environment
+
+Activate the Python virtual environment:
+
+cd ~/api-assignment-2
+source rentalenv/bin/activate
+
+
+Confirm the correct environment is active:
+
+which python
+
+
+Expected Output
+
+/home/ubuntu/api-assignment-2/rentalenv/bin/python
+
+🚀 Step 6 — Run the Application
+
+Start the Streamlit app:
+
+streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
+
+Expected Output
+
+You can now view your Streamlit app in your browser.
+URL: http://0.0.0.0:8501
+Network URL: http://<EC2_PUBLIC_IP>:8501
+
+🌍 Step 7 — Access the App in Browser
+
+On your local computer, open a web browser and visit:
+
+http://<EC2_PUBLIC_IP>:8501
+
+Example
+http://18.133.78.52:8501
+
+
+You should now see the SmartLegal Rental Assistant interface with:
+
+Tab 1: Draft New Agreement
+
+Tab 2: Review & Fix Agreement
+
+Sidebar: Voice to Clause
+
+Step 8 — Stop or Restart the App
+To stop the running Streamlit process:
+
+Press Ctrl + C in the terminal.
+
+To restart the app:
+source rentalenv/bin/activate
+cd ~/api-assignment-2
+streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
+Developer Notes
+
+Region: eu-west-2 (London)
+
+Recommended Instance Type: t4g.large (ARM)
+
+Default Port: 8501
+
+App Directory: /home/ubuntu/api-assignment-2
+
+View Logs:
+
+tail -f ~/.streamlit/logs/*
