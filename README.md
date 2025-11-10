@@ -234,6 +234,131 @@ tail -f ~/.streamlit/logs/*
 
 ---
 
+## Build and push Docker image to Amazon ECR
+```
+# Authenticate Docker with your ECR registry
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 402691950139.dkr.ecr.eu-west-2.amazonaws.com
+
+# Build the image
+docker build -t smartlegal-app .
+
+# Tag the image for ECR
+docker tag smartlegal-app:latest 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+
+# Push it to ECR
+docker push 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+```
+
+## Create and verify EKS cluster
+```
+eksctl create cluster \
+  --name smartlegal-cluster-v2 \
+  --region eu-west-2 \
+  --version 1.32 \
+  --nodegroup-name smartlegal-nodes-v2 \
+  --nodes 2 \
+  --nodes-min 2 \
+  --nodes-max 3 \
+  --node-type t3.large \
+  --managed
+```
+
+Verify:  
+```
+aws eks list-clusters --region eu-west-2
+aws eks update-kubeconfig --region eu-west-2 --name smartlegal-cluster-v2
+kubectl get nodes
+```
+
+## Create Kubernetes Secret from .env
+Ensure the .env file is in the project root and contains your API keys:  
+```
+OPENAI_API_KEY=<your-openai-key>
+GEMINI_API_KEY=<your-gemini-key>
+```
+Create the secret:  
+```
+kubectl create secret generic smartlegal-env --from-env-file=.env
+```
+Verify:  
+```
+kubectl get secret smartlegal-env
+```
+## Prepare Deployment YAML
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartlegal-deployment
+  namespace: default
+spec:
+  replicas: 1                   # temporarily single pod for file downloads
+  selector:
+    matchLabels:
+      app: smartlegal
+  template:
+    metadata:
+      labels:
+        app: smartlegal
+    spec:
+      containers:
+      - name: smartlegal
+        image: 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: PORT
+          value: "8501"
+        - name: GOOGLE_API_KEY            # map Gemini key to expected variable
+          valueFrom:
+            secretKeyRef:
+              name: smartlegal-env
+              key: GEMINI_API_KEY
+        envFrom:
+        - secretRef:
+            name: smartlegal-env
+```
+
+## Prepare Service YAML
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartlegal-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: smartlegal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8501
+```
+
+## Deploy to EKS
+```
+kubectl apply -f smartlegal-deployment.yaml
+kubectl apply -f smartlegal-service.yaml
+```
+Monitor rollout:  
+```
+kubectl get pods -w
+kubectl get svc smartlegal-service
+```
+## Verify environment variables inside pod
+```
+kubectl exec -it <pod-name> -- env | grep OPENAI
+kubectl exec -it <pod-name> -- env | grep GOOGLE
+```
+
+## Access the app
+Open the LoadBalancer URL in browser:  
+```
+http://a177958bd700d4965926d8ca3c883da8-1598551454.eu-west-2.elb.amazonaws.com
+```
+
+
+
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
 
