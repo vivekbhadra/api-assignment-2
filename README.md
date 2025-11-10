@@ -155,9 +155,9 @@ Expected Output
 You can now view your Streamlit app in your browser.
 ```
 URL: http://0.0.0.0:8501
-```
-Network URL: http://<EC2_PUBLIC_IP>:8501
 
+Network URL: http://<EC2_PUBLIC_IP>:8501
+```
 ## Step 7 — Access the App in Browser
 
 On your local computer, open a web browser and visit:
