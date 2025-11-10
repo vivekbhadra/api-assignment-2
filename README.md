@@ -234,6 +234,210 @@ tail -f ~/.streamlit/logs/*
 
 ---
 
+# SmartLegal App — End-to-End Deployment on AWS EKS
+This section lists every successful step, from Docker image build to full Kubernetes deployment, including the .env secret handling and the final deployment reapply and restart sequence.
+
+## Build and push Docker image to Amazon ECR
+```
+# Authenticate Docker with your ECR registry
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 402691950139.dkr.ecr.eu-west-2.amazonaws.com
+
+# Build the image
+docker build -t smartlegal-app .
+
+# Tag the image for ECR
+docker tag smartlegal-app:latest 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+
+# Push it to ECR
+docker push 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+```
+
+## Create and verify EKS cluster
+```
+eksctl create cluster \
+  --name smartlegal-cluster-v2 \
+  --region eu-west-2 \
+  --version 1.32 \
+  --nodegroup-name smartlegal-nodes-v2 \
+  --nodes 2 \
+  --nodes-min 2 \
+  --nodes-max 3 \
+  --node-type t3.large \
+  --managed
+```
+
+Verify:  
+```
+aws eks list-clusters --region eu-west-2
+aws eks update-kubeconfig --region eu-west-2 --name smartlegal-cluster-v2
+kubectl get nodes
+```
+
+## Create Kubernetes Secret from .env
+Ensure the .env file is in the project root and contains your API keys:  
+```
+OPENAI_API_KEY=<your-openai-key>
+GEMINI_API_KEY=<your-gemini-key>
+```
+Create the secret:  
+```
+kubectl create secret generic smartlegal-env --from-env-file=.env
+```
+Verify:  
+```
+kubectl get secret smartlegal-env
+```
+## Prepare Deployment YAML
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartlegal-deployment
+  namespace: default
+spec:
+  replicas: 1                   # temporarily single pod for file downloads
+  selector:
+    matchLabels:
+      app: smartlegal
+  template:
+    metadata:
+      labels:
+        app: smartlegal
+    spec:
+      containers:
+      - name: smartlegal
+        image: 402691950139.dkr.ecr.eu-west-2.amazonaws.com/smartlegal-app:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: PORT
+          value: "8501"
+        - name: GOOGLE_API_KEY            # map Gemini key to expected variable
+          valueFrom:
+            secretKeyRef:
+              name: smartlegal-env
+              key: GEMINI_API_KEY
+        envFrom:
+        - secretRef:
+            name: smartlegal-env
+```
+
+## Prepare Service YAML
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartlegal-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: smartlegal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8501
+```
+
+## Deploy to EKS
+```
+kubectl apply -f smartlegal-deployment.yaml
+kubectl apply -f smartlegal-service.yaml
+```
+Monitor rollout:  
+```
+kubectl get pods -w
+kubectl get svc smartlegal-service
+```
+## Verify environment variables inside pod
+```
+kubectl exec -it <pod-name> -- env | grep OPENAI
+kubectl exec -it <pod-name> -- env | grep GOOGLE
+```
+## Reapply and Restart Deployment (after Secret fix)
+After correcting the environment mapping (GOOGLE_API_KEY → GEMINI_API_KEY), the deployment was re-applied and restarted.  
+```
+# Reapply updated deployment file
+kubectl apply -f smartlegal-deployment.yaml
+
+# Restart the deployment to ensure pods load new environment variables
+kubectl rollout restart deployment smartlegal-deployment
+
+# Verify rollout
+kubectl get pods
+```
+## Verify 
+```
+kubectl get svc smartlegal-service
+```
+## Access the app
+Open the LoadBalancer URL in browser:  
+```
+http://a177958bd700d4965926d8ca3c883da8-1598551454.eu-west-2.elb.amazonaws.com
+```
+
+## Fix for Document Download Issue
+When multiple replicas were running, users received an error like:  
+
+“The generated document could not be downloaded.”  
+Streamlit served requests through the AWS LoadBalancer, which distributed them across multiple pods.  
+Each pod had its own isolated filesystem, so the .docx file generated on one pod was not accessible to another pod when the download request was routed there. 
+
+```
+vim smartlegal-deployment.yaml
+```
+Change:  
+``
+spec:
+  replicas: 2
+```
+to:
+```
+spec:
+  replicas: 1
+```
+Apply the update and restart the deployment:
+```
+kubectl apply -f smartlegal-deployment.yaml
+kubectl rollout restart deployment smartlegal-deployment
+```
+Verify:
+```
+kubectl get pods
+```
+All user requests now go to the same pod, ensuring the generated .docx files remain available during download.  
+Document download works reliably from the Streamlit interface.
+
+## Store files in S3
+For a production or scalable solution, it’s better to upload generated files to S3 instead of serving them directly.
+That way:
+
+All pods can upload to the same bucket.  
+The user always downloads from S3 (public link).  
+You can scale to multiple replicas safely.  
+Here’s the change you’d make inside your Streamlit app:  
+```
+import boto3
+import streamlit as st
+from datetime import datetime
+
+# Configure S3 client (IAM role on EKS node already allows access)
+s3 = boto3.client("s3")
+BUCKET_NAME = "smartlegal-generated-files"
+
+def upload_to_s3(file_path):
+    filename = file_path.split("/")[-1]
+    s3.upload_file(file_path, BUCKET_NAME, filename)
+    return f"https://{BUCKET_NAME}.s3.eu-west-2.amazonaws.com/{filename}"
+
+# After generating your file:
+file_path = f"Formatted_Rental_{tenant_name}.docx"
+s3_url = upload_to_s3(file_path)
+st.success("File successfully generated and uploaded.")
+st.markdown(f"[Download {file_path}]({s3_url})", unsafe_allow_html=True)
+```
+Then create the S3 bucket once:
+Now, every generated .docx is uploaded and can be downloaded reliably from any pod.
+
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
 
