@@ -118,6 +118,10 @@ cd ~/api-assignment-2
 nano .env
 ```
 
+Create your API keys from here: 
+https://aistudio.google.com/app/api-keys    
+https://platform.openai.com/api-keys    
+
 Add your API keys:
 ```
 GEMINI_API_KEY=<your_gemini_api_key>
