@@ -204,3 +204,32 @@ View Logs:
 ```
 tail -f ~/.streamlit/logs/*  
 ```
+
+# Work Distribution List
+
+**Project Coordination Message (10 Nov 2025)**
+
+## 1. Vivek Bhadra
+- Overall coordination and deployment.  
+- Currently handling **deployment setup and related tasks**.
+
+## 2. Mayank
+- Responsible for **project video recording**.  
+- Prepare recording **setup and environment**.  
+- Test the recording on personal setup to ensure readiness.
+
+## 3. Swagat
+- In charge of **end-to-end application testing**.  
+- Verify full functionality, workflows, and integration.
+
+## 4. Sidharth
+- Responsible for **application aesthetics and UI polish**:
+  - Adjust **font size, font type, and formatting** for consistency.  
+  - Fix **bug in the “Review Agreement” section**.  
+  - Ensure visual and user experience improvements.
+
+---
+
+**Team Note:**  
+All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
+
