@@ -76,7 +76,7 @@ pip install streamlit google-generativeai openai python-dotenv PyPDF2 python-doc
 
 # Create READY flag
 echo "SmartLegal Rental Assistant setup complete!" > /home/ubuntu/READY.txt
-
+```
 ### This Script Performs the Following
 
 - Installs **Python**, **pip**, **git**, and **FFmpeg**.  
@@ -84,7 +84,7 @@ echo "SmartLegal Rental Assistant setup complete!" > /home/ubuntu/READY.txt
 - Creates and activates a **Python virtual environment**.  
 - Installs all necessary **dependencies automatically**.  
 
-✅ When setup completes, a file `/home/ubuntu/READY.txt` will be created.
+When setup completes, a file `/home/ubuntu/READY.txt` will be created.
 
 ---
 
