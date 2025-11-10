@@ -77,4 +77,22 @@ pip install streamlit google-generativeai openai python-dotenv PyPDF2 python-doc
 # Create READY flag
 echo "SmartLegal Rental Assistant setup complete!" > /home/ubuntu/READY.txt
 
- 
+### This Script Performs the Following
+
+- Installs **Python**, **pip**, **git**, and **FFmpeg**.  
+- Clones the **GitHub repository**.  
+- Creates and activates a **Python virtual environment**.  
+- Installs all necessary **dependencies automatically**.  
+
+✅ When setup completes, a file `/home/ubuntu/READY.txt` will be created.
+
+---
+
+## ☁️ Step 3 — Connect to EC2 Instance
+
+Once the EC2 instance is running, connect to it from your local terminal:
+
+```bash
+cd ~/Downloads
+chmod 400 SmartLegalKey.pem
+ssh -i SmartLegalKey.pem ubuntu@<EC2_PUBLIC_IP> 
