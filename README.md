@@ -169,29 +169,35 @@ Example
 http://18.133.78.52:8501
 ```
 
-You should now see the SmartLegal Rental Assistant interface with:
+You should now see the **SmartLegal Rental Assistant** interface with:
 
-Tab 1: Draft New Agreement
+- **Tab 1:** Draft New Agreement  
+- **Tab 2:** Review & Fix Agreement  
+- **Sidebar:** Voice to Clause  
 
-Tab 2: Review & Fix Agreement
+---
 
-Sidebar: Voice to Clause
+# Step 8 — Stop or Restart the App
 
-Step 8 — Stop or Restart the App
 To stop the running Streamlit process:
 
-Press Ctrl + C in the terminal.
+Press `Ctrl + C` in the terminal.
 
 To restart the app:
+
 ```
 source rentalenv/bin/activate
 cd ~/api-assignment-2
 streamlit run app.py --server.port=8501 --server.address=0.0.0.0
 ```
 Developer Notes
+
 Region: eu-west-2 (London)
 Recommended Instance Type: t4g.large (ARM)
 Default Port: 8501
 App Directory: /home/ubuntu/api-assignment-2
-View Logs:
+
+View Logs:  
+```
 tail -f ~/.streamlit/logs/*
+```
