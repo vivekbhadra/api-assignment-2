@@ -571,6 +571,89 @@ Sample Output (as Displayed in the Application):
 
 <img width="1832" height="78" alt="image" src="https://github.com/user-attachments/assets/f610e13d-28bc-496a-932c-1ffc84661256" />
 
+```markdown
+# Major Fixes and Enhancements Implemented
+
+## 1. Persistent Streamlit Session and Tab State
+**Problem:** Each time a form was submitted or a file was uploaded, Streamlit re-executed the entire script, automatically switching the interface back to the first tab (“Draft New Agreement”). This caused user workflow interruptions and loss of context during review.  
+
+**Fix:** Replaced `st.tabs()` with a session-controlled `st.radio` selector and maintained the selected tab through `st.session_state.active_tab`. A lightweight helper function `set_tab()` was added to update the state programmatically during interactions such as file uploads or form submissions.  
+
+**Impact:** The interface now remains on the selected tab (“Review & Fix Agreement” or “Draft New Agreement”) even after re-runs, ensuring a smooth and uninterrupted user experience.
+
+---
+
+## 2. Scoped Form Submission Handling
+**Problem:** The variable `submitted` was declared outside its logical scope, causing runtime errors when the app switched to the review tab (where the variable was undefined).  
+
+**Fix:** Moved the `if submitted:` logic fully inside the “Draft New Agreement” section to keep it context-aware and isolate the two workflows.  
+
+**Impact:** Prevented `NameError` exceptions, improved code clarity, and aligned the control flow with Streamlit’s reactive execution model.
+
+---
+
+## 3. Streamlit Session Persistence for Review Results
+**Problem:** Uploaded documents and generated review outputs were lost whenever the user switched tabs or re-uploaded files.  
+
+**Fix:** Introduced `st.session_state` variables to persist uploaded files and intermediate results between app re-runs.  
+
+**Impact:** The review analysis (summary, risk classification, and amendment suggestions) now persists across navigation, eliminating redundant reprocessing.
+
+---
+
+## 4. Correct Clause Formatting in Word Output
+**Problem:** The generated Word document rendered entire paragraphs in bold instead of only the clause titles, leading to poor readability.  
+
+**Fix:** Enhanced the regex parsing logic in `create_formatted_agreement()` to bold only clause headings such as “WHEREAS”, “NOW THEREFORE”, or numbered sections while keeping the body text normal.  
+
+**Impact:** Legal agreements now adhere to standard formatting conventions and improved readability.
+
+---
+
+## 5. Structured LLM Metrics and Logging
+**Problem:** There was no unified mechanism to monitor API usage, latency, or costs for model calls.  
+
+**Fix:** Implemented a comprehensive `log_metric()` function that records latency, token usage, and cost into a structured JSONL file (`metrics_log.jsonl`). Added corresponding counters and summaries in the Streamlit sidebar for real-time visibility.  
+
+**Impact:** Enabled consistent tracking of Gemini and OpenAI API performance, improved observability, and supported transparent cost monitoring.
+
+---
+
+## 6. Voice-to-Clause Integration
+**Fix:** Integrated OpenAI Whisper for audio transcription and GPT-4o-mini for automatic conversion of spoken statements into legal clauses.  
+
+**Impact:** Adds accessibility and productivity, allowing users to draft clauses verbally and receive polished legal text automatically.
+
+---
+
+## 7. Model Caching and Resource Optimisation
+**Fix:** Applied the `@st.cache_resource` decorator to the DistilBERT risk-classification model to prevent reloading it on every app refresh.  
+
+**Impact:** Significantly reduced startup time and improved overall app responsiveness.
+
+---
+
+## 8. Improved Error Handling and User Transparency
+- Enhanced validation for mandatory input fields (landlord, tenant, and property details).  
+- Added detailed error messages for API failures and malformed documents.  
+- Displayed latency and cost metrics after each generation step to improve user trust and system transparency.
+
+---
+
+## 9. Backward Compatibility and Non-Disruptive Refactor
+**Fix:** The fixes were implemented without altering any existing functionality or breaking backward compatibility.  
+Core modules for document generation, logging, and review were preserved exactly as before; only tab handling and scope corrections were introduced.  
+
+**Impact:** Ensures continuity in evaluation and consistent behaviour across both local and deployed versions.
+
+---
+
+## 10. Future-Ready Modular Architecture
+**Fix:** Code structure has been logically separated into reusable functions (`create_formatted_agreement`, `log_metric`, `set_tab`, etc.), ready for future modularisation into independent Python modules such as `metrics.py`, `formatting.py`, and `review.py`.  
+
+**Impact:** This design supports eventual migration to a microservice or container-based architecture under Docker/Kubernetes.
+```
+
 
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
