@@ -178,12 +178,27 @@ risk_pipe = load_risk_model()
 st.title("SmartLegal Rental Assistant")
 st.markdown("**Draft • Review • Fix — Based on Model Tenancy Act 2021**")
 
-tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
+#tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
+# Persist active tab in session_state to prevent focus reset
+# --- Graceful persistent tab selection ---
+tab_names = ["Draft New Agreement", "Review & Fix Agreement"]
+
+# Show tabs as radio buttons but styled like tabs
+selected_tab = st.session_state.get("selected_tab", tab_names[0])
+selected_tab = st.radio(
+    "Navigation",
+    tab_names,
+    horizontal=True,
+    index=tab_names.index(selected_tab),
+    key="tab_selector"
+)
+
+st.session_state.selected_tab = selected_tab
 
 # =========================
 # TAB 1: Draft New Agreement
 # =========================
-with tab1:
+if selected_tab == "Draft New Agreement":
     st.header("Create New Rental Agreement")
 
     # Input form (prevents field refresh glitches)
@@ -221,92 +236,92 @@ with tab1:
         # Ensure the submit button is inside the form
         submitted = st.form_submit_button("Generate Agreement")
 
-if submitted:
-    # Validate mandatory fields
-    if not all([landlord, landlord_address, landlord_dob, tenant, tenant_address, tenant_dob, address]):
-        st.error("Please fill in all mandatory fields: Landlord and Tenant names, addresses, dates of birth, and property address.")
-    else:
-        # Proceed with agreement generation
-        with st.spinner('Generating rental agreement... Please wait.'):
-            prompt = f"""
-            Draft a complete rental agreement under the Model Tenancy Act 2021 with the following details:
+    if submitted:
+        # Validate mandatory fields
+        if not all([landlord, landlord_address, landlord_dob, tenant, tenant_address, tenant_dob, address]):
+            st.error("Please fill in all mandatory fields: Landlord and Tenant names, addresses, dates of birth, and property address.")
+        else:
+            # Proceed with agreement generation
+            with st.spinner('Generating rental agreement... Please wait.'):
+                prompt = f"""
+                Draft a complete rental agreement under the Model Tenancy Act 2021 with the following details:
 
-            Landlord:
-              Name: {landlord}
-              Date of Birth: {landlord_dob}
-              Address: {landlord_address}
+                Landlord:
+                  Name: {landlord}
+                  Date of Birth: {landlord_dob}
+                  Address: {landlord_address}
 
-            Tenant:
-              Name: {tenant}
-              Date of Birth: {tenant_dob}
-              Address: {tenant_address}
+                Tenant:
+                  Name: {tenant}
+                  Date of Birth: {tenant_dob}
+                  Address: {tenant_address}
 
-            Property: {address}
-            Rent: ₹{rent}/month
-            Deposit: ₹{deposit}
-            Duration: {months}, starting from {start}.
-            Amenities: {amenities if amenities else 'None'}
+                Property: {address}
+                Rent: ₹{rent}/month
+                Deposit: ₹{deposit}
+                Duration: {months}, starting from {start}.
+                Amenities: {amenities if amenities else 'None'}
 
-            Include all mandatory clauses such as registration, police verification,
-            maintenance, notice period, and eviction.
+                Include all mandatory clauses such as registration, police verification,
+                maintenance, notice period, and eviction.
 
-            IMPORTANT: Do not include any placeholders, examples, or 'e.g.' text.
-            Use the exact values provided above and write in clear, formal legal language.
-            """
+                IMPORTANT: Do not include any placeholders, examples, or 'e.g.' text.
+                Use the exact values provided above and write in clear, formal legal language.
+                """
 
-            try:
-                model = genai.GenerativeModel("models/gemini-2.0-flash")
-                t0 = time.time()
-                response = model.generate_content(prompt)
-                t1 = time.time()
+                try:
+                    model = genai.GenerativeModel("models/gemini-2.0-flash")
+                    t0 = time.time()
+                    response = model.generate_content(prompt)
+                    t1 = time.time()
 
-                draft = (response.text or "").strip()
+                    draft = (response.text or "").strip()
 
-                # Remove generic prefixes like “Sure/Okay/Here is…”
-                for prefix in ("sure", "okay", "here", "below", "this is"):
-                    if draft.lower().startswith(prefix):
-                        parts = draft.split("\n", 1)
-                        draft = parts[1].strip() if len(parts) > 1 else draft
-                        break
+                    # Remove generic prefixes like “Sure/Okay/Here is…”
+                    for prefix in ("sure", "okay", "here", "below", "this is"):
+                        if draft.lower().startswith(prefix):
+                            parts = draft.split("\n", 1)
+                            draft = parts[1].strip() if len(parts) > 1 else draft
+                            break
 
-                # Log metrics
-                latency = round(t1 - t0, 2)
-                token_count = len(prompt.split()) + len(draft.split())
-                cost = round(token_count * 0.0005 / 1000, 6)
+                    # Log metrics
+                    latency = round(t1 - t0, 2)
+                    token_count = len(prompt.split()) + len(draft.split())
+                    cost = round(token_count * 0.0005 / 1000, 6)
 
-                st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
-                log_metric("DraftAgreement", latency, token_count, cost, status="SUCCESS")
+                    st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
+                    log_metric("DraftAgreement", latency, token_count, cost, status="SUCCESS")
 
-            except Exception as e:
-                st.error(f"Gemini API error: {e}")
-                draft = "Unable to generate agreement text."
-                log_metric("DraftAgreement", 0, 0, 0, status="FAILED")
+                except Exception as e:
+                    st.error(f"Gemini API error: {e}")
+                    draft = "Unable to generate agreement text."
+                    log_metric("DraftAgreement", 0, 0, 0, status="FAILED")
 
-        # Display generated content
-        st.success("Agreement Drafted Successfully!")
-        st.text_area("Preview", draft, height=400, key="draft_preview")
+            # Display generated content
+            st.success("Agreement Drafted Successfully!")
+            st.text_area("Preview", draft, height=400, key="draft_preview")
 
-        #st.session_state["landlord_dob"] = landlord_dob
-        #st.session_state["tenant_dob"] = tenant_dob
-        #st.session_state["landlord_address"] = landlord_address
-        #st.session_state["tenant_address"] = tenant_address
+            #st.session_state["landlord_dob"] = landlord_dob
+            #st.session_state["tenant_dob"] = tenant_dob
+            #st.session_state["landlord_address"] = landlord_address
+            #st.session_state["tenant_address"] = tenant_address
 
-        # Generate formatted document
-        with st.spinner('Creating formatted document...'):
-            file_name = create_formatted_agreement(draft, tenant, landlord)
+            # Generate formatted document
+            with st.spinner('Creating formatted document...'):
+                file_name = create_formatted_agreement(draft, tenant, landlord)
 
-        with open(file_name, "rb") as f:
-            st.download_button(
-                label="Download Formatted Word File",
-                data=f,
-                file_name=file_name,
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            )
+            with open(file_name, "rb") as f:
+                st.download_button(
+                    label="Download Formatted Word File",
+                    data=f,
+                    file_name=file_name,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
 
 # =========================
 # TAB 2: Review & Fix Agreement
 # =========================
-with tab2:
+elif selected_tab == "Review & Fix Agreement":
     st.header("Review & Suggest Amendments")
     uploaded = st.file_uploader(
         "Upload PDF / DOCX / TXT",
