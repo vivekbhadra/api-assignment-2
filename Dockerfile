@@ -1,25 +1,38 @@
-# === SmartLegal Rental Assistant - Dockerfile ===
+# === SmartLegal Rental Assistant - Optimised Dockerfile ===
+
+# Base image: lightweight but compatible with Streamlit & AI SDKs
 FROM python:3.10-slim
 
-# Prevent Python from writing pyc files / buffering stdout
+# Prevent Python bytecode + buffering
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system deps if needed by PyPDF2/docx/ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install essential system dependencies only
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set work directory
 WORKDIR /app
 
-# Copy code
+# Copy requirement installation layer
+# (copy only requirements first to leverage Docker layer caching)
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app source code (minimal files)
 COPY app.py README.md ./
 
-# Install Python deps
-RUN pip install --no-cache-dir streamlit google-generativeai openai python-dotenv \
-    PyPDF2 python-docx torch transformers pillow
+# Environment variables (Streamlit default port)
+ENV PORT=8501
 
-# Streamlit defaults to port 8501
+# Expose port and run Streamlit
 EXPOSE 8501
-
-# Entrypoint
 CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
 
