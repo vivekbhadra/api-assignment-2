@@ -429,8 +429,6 @@ def upload_to_s3(file_path):
     s3.upload_file(file_path, BUCKET_NAME, filename)
     return f"https://{BUCKET_NAME}.s3.eu-west-2.amazonaws.com/{filename}"
 
-# After generating your file
-```
 file_path = f"Formatted_Rental_{tenant_name}.docx"
 s3_url = upload_to_s3(file_path)
 st.success("File successfully generated and uploaded.")
