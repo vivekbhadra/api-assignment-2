@@ -1,91 +1,137 @@
 #!/usr/bin/env python3
+import os
+import re
+import json
+import time
+import logging
+from datetime import datetime
+from io import BytesIO
+
 import streamlit as st
 import google.generativeai as genai
 import openai
-import os
+import pandas as pd
 from dotenv import load_dotenv
 from transformers import pipeline
 from PyPDF2 import PdfReader
 import docx
 from docx import Document
-from io import BytesIO
-
-# For better formatting 
-#from docx import Document
-from docx.shared import Pt, Inches 
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 
-#from docx import Document
-#from docx.shared import Pt
-#from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-#import re
+# =========================
+# Config & LLMOps Logging
+# =========================
+LOG_FILE = "metrics_log.jsonl"
+logging.basicConfig(
+    filename="smartlegal_metrics.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 
-#from docx import Document
-#from docx.shared import Pt, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-import re
-# For generating the metrics
-import time
+def _ensure_metrics_state():
+    if "metrics" not in st.session_state:
+        st.session_state.metrics = {
+            "total_requests": 0,
+            "failed_requests": 0,
+            "total_latency": 0.0,
+            "avg_latency": 0.0,
+        }
 
-# Generating Formatted Document
+def _bump_success(latency_s: float):
+    _ensure_metrics_state()
+    st.session_state.metrics["total_requests"] += 1
+    st.session_state.metrics["total_latency"] += latency_s
+    tr = st.session_state.metrics["total_requests"]
+    st.session_state.metrics["avg_latency"] = (
+        st.session_state.metrics["total_latency"] / max(tr, 1)
+    )
+
+def _bump_failure():
+    _ensure_metrics_state()
+    st.session_state.metrics["failed_requests"] += 1
+    st.session_state.metrics["total_requests"] += 1
+
+def log_metric(event_type, latency, tokens, cost, status="SUCCESS", model="gemini-2.0-flash"):
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": event_type,
+        "model": model,
+        "latency_s": latency,
+        "tokens_used": tokens,
+        "cost_gbp": cost,
+        "status": status,
+    }
+    # Append to JSONL
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    # Also to streamlit sidebar counters
+    if status == "SUCCESS":
+        _bump_success(latency)
+    else:
+        _bump_failure()
+    # System log file
+    logging.info(entry)
+
+# =========================
+# Document Formatting Helper
+# =========================
 def create_formatted_agreement(draft_text, tenant):
     doc = Document()
 
-    # === Title ===
+    # Title
     title = doc.add_paragraph("RENTAL AGREEMENT")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = title.runs[0]
     run.bold = True
-    run.font.name = 'Times New Roman'
+    run.font.name = "Times New Roman"
     run.font.size = Pt(16)
 
+    # Subtitle
     subtitle = doc.add_paragraph("(Under the Model Tenancy Act, 2021)")
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.runs[0].font.size = Pt(12)
     doc.add_paragraph()  # spacing
 
-    # === Body Style ===
+    # Normal style
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Times New Roman"
     normal_style.font.size = Pt(12)
 
-    # === Clean and process text ===
-    clean_text = re.sub(r"#+", "", draft_text)           # remove markdown ## headings
-    clean_text = re.sub(r"\*\*", "", clean_text)         # remove ** markers
+    # Clean the model text (remove markdown artefacts)
+    clean_text = re.sub(r"#+", "", draft_text)
+    clean_text = re.sub(r"\*\*", "", clean_text)
     lines = [ln.strip() for ln in clean_text.split("\n") if ln.strip()]
 
     for line in lines:
-        # === Detect and style headings ===
         if re.match(r"^(WHEREAS|NOW THEREFORE|IN WITNESS|THIS RENTAL AGREEMENT|BETWEEN|AND|IMPORTANT NOTES|SIGNED)", line, re.IGNORECASE):
             p = doc.add_paragraph(line)
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
             r = p.runs[0]
             r.bold = True
             p.paragraph_format.space_before = Pt(8)
             p.paragraph_format.space_after = Pt(4)
-        elif re.match(r"^[0-9]+\.", line):  # numbered clauses (e.g., 1., 2.)
+        elif re.match(r"^[0-9]+\.", line):  # numbered clauses
             p = doc.add_paragraph(line)
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            p.paragraph_format.left_indent = Inches(0.3)  # indent numbered clauses
+            p.paragraph_format.left_indent = Inches(0.3)
             p.paragraph_format.space_before = Pt(4)
             p.paragraph_format.space_after = Pt(2)
             p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-        elif line.startswith("*"):  # bulleted points
+        elif line.startswith("*"):  # bullet lines
             clean = line.lstrip("* ").strip()
             p = doc.add_paragraph(clean, style="List Bullet")
             p.paragraph_format.left_indent = Inches(0.6)
-            p.paragraph_format.space_after = Pt(2)
         else:
             p = doc.add_paragraph(line)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p.paragraph_format.left_indent = Inches(0.25)
             p.paragraph_format.space_after = Pt(6)
-            p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 
-    # === Signature Section ===
+    # Signature block
     doc.add_page_break()
-    doc.add_paragraph("IN WITNESS WHEREOF, the parties hereto have executed this Agreement.", style="Normal")
-
+    doc.add_paragraph(
+        "IN WITNESS WHEREOF, the parties hereto have executed this Agreement.",
+        style="Normal",
+    )
     table = doc.add_table(rows=2, cols=2)
     table.autofit = True
     table.cell(0, 0).text = "By the Landlord:\n\n(Signature)\n\nVivek Bhadra"
@@ -95,30 +141,22 @@ def create_formatted_agreement(draft_text, tenant):
     doc.save(filename)
     return filename
 
-# === SmartLegal Rental Assistant ===
-
-# Load environment variables
+# =========================
+# App Init & Models
+# =========================
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Load fine-tuned model (Hugging Face)
 @st.cache_resource
 def load_risk_model():
-    """
-    Loads the Legal Risk Classification model.
-    Uses a reliable public model for this assignment.
-    """
-    from transformers import pipeline
-
-    pipe = pipeline(
+    return pipeline(
         "text-classification",
         model="distilbert-base-uncased-finetuned-sst-2-english",
         tokenizer="distilbert-base-uncased-finetuned-sst-2-english",
         truncation=True,
         max_length=512,
     )
-    return pipe
 
 risk_pipe = load_risk_model()
 
@@ -127,11 +165,13 @@ st.markdown("**Draft • Review • Fix — Based on Model Tenancy Act 2021**")
 
 tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
 
-# === TAB 1: Draft New Agreement ===
+# =========================
+# TAB 1: Draft New Agreement
+# =========================
 with tab1:
     st.header("Create New Rental Agreement")
 
-    # === Input Form ===
+    # Input form (prevents field refresh glitches)
     with st.form("rental_form", clear_on_submit=False):
         landlord = st.text_input("Landlord Name", key="landlord_name")
         tenant = st.text_input("Tenant Name", key="tenant_name")
@@ -141,8 +181,6 @@ with tab1:
         start = st.date_input("Start Date", key="lease_start_date")
         months = st.selectbox("Duration", ["11 months", "2 years", "3 years"], key="lease_duration")
         amenities = st.text_area("Amenities (optional)", key="amenities_text")
-
-        # === Submit Form ===
         submitted = st.form_submit_button("Generate Agreement")
 
     if submitted:
@@ -161,132 +199,156 @@ with tab1:
 
         try:
             model = genai.GenerativeModel("models/gemini-2.0-flash")
-            start_time = time.time()
+            t0 = time.time()
             response = model.generate_content(prompt)
-            end_time = time.time()
+            t1 = time.time()
 
-            # === Extract and clean the model output ===
-            draft = response.text.strip()
+            draft = (response.text or "").strip()
 
-            # Remove conversational prefixes like "Sure," or "Okay, here..."
-            unwanted_prefixes = [
-                "Sure, here",
-                "Okay, here",
-                "Here is",
-                "Here’s",
-                "Below is",
-                "This is"
-            ]
-            for prefix in unwanted_prefixes:
-                if draft.lower().startswith(prefix.lower()):
-                    draft = draft.split("\n", 1)[-1].strip()
+            # Trim “Sure/Okay/Here is …” style prefixes if present
+            for prefix in ("sure", "okay", "here", "below", "this is"):
+                if draft.lower().startswith(prefix):
+                    parts = draft.split("\n", 1)
+                    draft = parts[1].strip() if len(parts) > 1 else draft
                     break
 
-            # === LLMOps Metrics ===
-            latency = round(end_time - start_time, 2)
-            token_count = len(prompt.split()) + len(draft.split())   # Approx token count
-            cost = round(token_count * 0.0005 / 1000, 6)             # Approx cost in £
+            # Metrics
+            latency = round(t1 - t0, 2)
+            token_count = len(prompt.split()) + len(draft.split())
+            cost = round(token_count * 0.0005 / 1000, 6)
 
             st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
-
+            log_metric("DraftAgreement", latency, token_count, cost, status="SUCCESS")
         except Exception as e:
             st.error(f"Gemini API error: {e}")
-            draft = "Unable to generate agreement text. Please try again later."
+            draft = "Unable to generate agreement text."
+            log_metric("DraftAgreement", 0, 0, 0, status="FAILED")
 
         st.success("Agreement Drafted Successfully!")
-        st.text_area("Preview", draft, height=400)
+        st.text_area("Preview", draft, height=400, key="draft_preview")
 
         file_name = create_formatted_agreement(draft, tenant)
-
-        st.success("Agreement Drafted Successfully!")
         with open(file_name, "rb") as f:
             st.download_button(
                 label="Download Formatted Word File",
                 data=f,
                 file_name=file_name,
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
-        #st.text_area("Preview", draft, height=400)
-        st.text_area("Preview", draft, height=400, key="draft_preview")
 
-
-# === TAB 2: Review & Fix Agreement ===
+# =========================
+# TAB 2: Review & Fix Agreement
+# =========================
 with tab2:
     st.header("Review & Suggest Amendments")
-
     uploaded = st.file_uploader(
         "Upload PDF / DOCX / TXT",
         type=["pdf", "docx", "txt"],
-        key="review_uploader"
+        key="review_uploader",
     )
 
     if uploaded:
-        # === Extract text from uploaded document ===
+        # Extract text
         if uploaded.type == "application/pdf":
-            text = " ".join([p.extract_text() or "" for p in PdfReader(uploaded).pages])
-        elif uploaded.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            doc = docx.Document(uploaded)
-            text = "\n".join([p.text for p in doc.paragraphs])
+            text = " ".join([(p.extract_text() or "") for p in PdfReader(uploaded).pages])
+        elif uploaded.type in (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/msword",
+        ):
+            d = docx.Document(uploaded)
+            text = "\n".join([p.text for p in d.paragraphs])
         else:
-            text = uploaded.read().decode("utf-8")
+            text = uploaded.read().decode("utf-8", errors="ignore")
 
-        # === Load verified Gemini model ===
         model = genai.GenerativeModel("models/gemini-2.0-flash")
 
-        # ===  Summary Generation with LLMOps Metrics ===
-        import time
-        start = time.time()
-        summary = model.generate_content(
-            f"Summarize this rental agreement in 100 words:\n{text[:4000]}"
-        ).text
-        end = time.time()
-        latency_summary = round(end - start, 2)
-        tokens_summary = len(summary.split()) + len(text.split()[:4000])
-        cost_summary = round(tokens_summary * 0.0005 / 1000, 6)
+        # Summary + metrics
+        try:
+            t0 = time.time()
+            summary = model.generate_content(
+                f"Summarize this rental agreement in 100 words:\n{text[:4000]}"
+            ).text
+            t1 = time.time()
+            latency_summary = round(t1 - t0, 2)
+            tokens_summary = len(summary.split()) + len(text.split()[:4000])
+            cost_summary = round(tokens_summary * 0.0005 / 1000, 6)
+            st.subheader("Summary")
+            st.text_area("Summary Preview", summary, height=150, key="review_summary")
+            st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
+            log_metric("Summarisation", latency_summary, tokens_summary, cost_summary, status="SUCCESS")
+        except Exception as e:
+            st.error(f"Gemini summary error: {e}")
+            log_metric("Summarisation", 0, 0, 0, status="FAILED")
 
-        st.subheader("Summary")
-        st.text_area("Summary Preview", summary, height=150, key="review_summary")
-        st.caption(f" Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
+        # Risk classifier
+        try:
+            risk = risk_pipe(text[:10000])[0]
+            st.subheader("Risk Level")
+            st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+            log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
+        except Exception as e:
+            st.error(f"Risk model error: {e}")
+            log_metric("RiskClassification", 0, 0, 0, status="FAILED", model="distilbert-sst2")
 
-        # === Risk Level (BERT classification) ===
-        risk = risk_pipe(text[:10000])[0]
-        st.subheader("Risk Level")
-        st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
-        if risk['label'] == "SAFE":
-            st.caption("Classified as SAFE – no major missing clauses.")
-        else:
-            st.caption("Classified as RISKY – review required.")
+        # Amendments + metrics
+        try:
+            t0 = time.time()
+            amendments = model.generate_content(
+                f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
+            ).text
+            t1 = time.time()
+            latency_amend = round(t1 - t0, 2)
+            tokens_amend = len(amendments.split()) + len(text.split()[:5000])
+            cost_amend = round(tokens_amend * 0.0005 / 1000, 6)
+            st.subheader("Suggested Amendments")
+            st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
+            st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
+            log_metric("AmendmentReview", latency_amend, tokens_amend, cost_amend, status="SUCCESS")
+        except Exception as e:
+            st.error(f"Gemini amendment error: {e}")
+            log_metric("AmendmentReview", 0, 0, 0, status="FAILED")
 
-        # === Amendment Suggestions with LLMOps Metrics ===
-        start = time.time()
-        amendments = model.generate_content(
-            f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
-        ).text
-        end = time.time()
-        latency_amend = round(end - start, 2)
-        tokens_amend = len(amendments.split()) + len(text.split()[:5000])
-        cost_amend = round(tokens_amend * 0.0005 / 1000, 6)
-
-        st.subheader("Suggested Amendments")
-        st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
-        st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
-
-        # === Track query success ===
-        if "success_count" not in st.session_state:
-            st.session_state.success_count = 0
-        st.session_state.success_count += 1
+        # Successful queries counter
+        st.session_state.success_count = st.session_state.get("success_count", 0) + 1
         st.sidebar.metric("Total Successful Queries", st.session_state.success_count)
 
-
-# === SIDEBAR: Voice to Clause ===
+# =========================
+# Sidebar: Voice + Metrics
+# =========================
 with st.sidebar:
     st.header("Voice to Clause")
-    audio = st.file_uploader("Upload voice note", type=["mp3","wav"])
+    audio = st.file_uploader("Upload voice note", type=["mp3", "wav"])
     if audio:
-        transcript = openai.audio.transcriptions.create(model="whisper-1", file=audio).text
-        st.code(transcript)
-        clause = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role":"user","content":f"Convert to legal clause (Model Tenancy Act 2021): {transcript}"}]
-        ).choices[0].message.content
-        st.success(clause)
+        try:
+            transcript = openai.audio.transcriptions.create(model="whisper-1", file=audio).text
+            st.code(transcript)
+            clause = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{
+                    "role": "user",
+                    "content": f"Convert to legal clause (Model Tenancy Act 2021): {transcript}"
+                }],
+            ).choices[0].message.content
+            st.success(clause)
+            # Approx metrics for voice step (no latency tracked here)
+            log_metric("VoiceToClause", 0, len(transcript.split()), 0.0001, status="SUCCESS", model="whisper+gpt-4o-mini")
+        except Exception as e:
+            st.error(f"Voice-to-clause error: {e}")
+            log_metric("VoiceToClause", 0, 0, 0, status="FAILED", model="whisper+gpt-4o-mini")
+
+    st.subheader("📈 LLMOps Metrics Summary")
+    _ensure_metrics_state()
+    st.metric("Total Requests", st.session_state.metrics["total_requests"])
+    st.metric("Avg Latency (s)", round(st.session_state.metrics["avg_latency"], 2))
+    st.metric("Failed Requests", st.session_state.metrics["failed_requests"])
+
+    if os.path.exists(LOG_FILE):
+        try:
+            df = pd.read_json(LOG_FILE, lines=True)
+            st.dataframe(df.tail(5), use_container_width=True)
+            st.caption(f"Total Logs: {len(df)} | Last Updated: {df.iloc[-1]['timestamp']}")
+        except Exception:
+            st.info("Metrics log exists but could not be parsed yet.")
+    else:
+        st.info("No metrics logged yet. Generate an agreement to start.")
+
