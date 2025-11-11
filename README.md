@@ -653,6 +653,108 @@ Core modules for document generation, logging, and review were preserved exactly
 
 **Impact:** This design supports eventual migration to a microservice or container-based architecture under Docker/Kubernetes.
 
+# Project-to-Assignment Mapping
+
+## Domain Selected
+**What:** LegalTech — residential rental agreements for India (Model Tenancy Act 2021).  
+**Where:** Framing and prompts in `app.py` (tab labels, headings, and prompt text), and document formatter naming.
+
+---
+
+## Two AI Categories Chosen
+**What:** Natural Language Processing (NLP) and Speech Recognition.  
+
+**Where:**  
+- **NLP:** Gemini for drafting, summarising, and suggesting amendments; DistilBERT for risk classification.  
+- **Speech:** OpenAI Whisper for transcription; GPT-4o-mini to convert speech into formal legal clauses.
+
+---
+
+## Five Cohesive Sub-Tasks
+**What:**  
+1. Draft legal agreement (text generation)  
+2. Review and suggest amendments (critique)  
+3. Summarisation (100-word summary)  
+4. Risk classification — SAFE or RISKY (supervised classifier)  
+5. Voice-to-clause (speech → text → legal clause)
+
+**Where:**  
+- **Draft:** `app.py` → “Draft New Agreement” tab (Gemini call)  
+- **Amendments:** `app.py` → “Review & Fix Agreement” tab (Gemini call)  
+- **Summary:** Same tab, additional Gemini call  
+- **Risk:** `load_risk_model()` + `risk_pipe(...)` in `app.py`  
+- **Voice:** Sidebar “Voice to Clause” in `app.py` (Whisper + GPT-4o-mini)
+
+---
+
+## Models / APIs Identified and Used
+**What:**  
+- **Gemini 2.0 Flash** (`models/gemini-2.0-flash`) for generation, summarisation, and amendments.  
+- **DistilBERT SST-2 (Hugging Face)** for baseline risk classification.  
+- **OpenAI Whisper** for transcription and **GPT-4o-mini** for voice-to-clause generation.
+
+**Where:**  
+- `app.py` → imports and initialisation (`genai.configure`, `openai.api_key`)  
+- `load_risk_model()` uses Hugging Face Transformers pipeline with model and tokenizer setup.
+
+---
+
+## Cohesion Towards a Single Objective
+**What:** All sub-tasks combine into one integrated workflow — producing a compliant rental agreement, reviewing it for legal soundness, assessing risk, and allowing voice-based clause input. The formatted `.docx` output completes the workflow.  
+
+**Where:**  
+- Single Streamlit app with two main tabs and a sidebar.  
+- `create_formatted_agreement()` generates the final professional Word document.
+
+---
+
+## API-Based, Interactive, Demonstrable Application
+**What:** Interactive Streamlit UI with API calls to Google Generative AI, OpenAI, and Hugging Face. Fully containerised and deployed on AWS EKS with a public LoadBalancer Service.  
+
+**Where:**  
+- `app.py` → Streamlit UI logic and API calls  
+- `Dockerfile` → containerisation setup  
+- `build_and_deploy.sh` → automated build and EKS rollout  
+- Deployment verified through `kubectl get pods` and `kubectl get svc smartlegal-service`
+
+---
+
+## LLMOps Principles with ≥5 Metrics Measured
+**What (measured and surfaced):**  
+- Per-call latency (seconds)  
+- Tokens used (approximate)  
+- Cost estimate (GBP)  
+- Request status (`SUCCESS` / `FAILED`) and error rate (`failed_requests` counter)  
+- Rolling totals and average latency (session-level)  
+- Optional throughput proxy: total requests over session runtime  
+
+**Where:**  
+- `app.py` → central `log_metric()` writes JSONL logs to `metrics_log.jsonl` and `smartlegal_metrics.log`.  
+- Sidebar “LLMOps Metrics Summary” displays:  
+  - Total Requests  
+  - Average Latency  
+  - Failed Requests  
+  - Live table of the latest logged events  
+- Metrics recorded for `DraftAgreement`, `Summarisation`, `AmendmentReview`, `RiskClassification`, and `VoiceToClause`.
+
+---
+
+## Fine-Tuned Model: Dataset and Demonstration
+**What (current and planned):**  
+- **Current:** Risk classification uses a public DistilBERT SST-2 baseline for demonstration.  
+- **Planned:** Fine-tune a classifier on legal-domain data (e.g., labelled Indian rental clauses with SAFE vs RISKY tags).  
+
+**Demonstration Path:**  
+- Host the fine-tuned model (e.g., `vivekbhadra/rental-risk-bert`) on Hugging Face.  
+- Update `load_risk_model()` to load the new repo.  
+- Include before/after accuracy or F1 metrics in README with evidence (screenshots or a short demo video).  
+
+**Where:**  
+- `app.py` → `load_risk_model()` will only require a model path update (no UI changes).  
+- Existing `log_metric()` will continue capturing RiskClassification events automatically.  
+- Optional: Add visualisations like label distribution or confidence histogram in later versions.
+
+
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
 
