@@ -571,7 +571,7 @@ Sample Output (as Displayed in the Application):
 
 <img width="1832" height="78" alt="image" src="https://github.com/user-attachments/assets/f610e13d-28bc-496a-932c-1ffc84661256" />
 
-```markdown
+
 # Major Fixes and Enhancements Implemented
 
 ## 1. Persistent Streamlit Session and Tab State
@@ -652,8 +652,6 @@ Core modules for document generation, logging, and review were preserved exactly
 **Fix:** Code structure has been logically separated into reusable functions (`create_formatted_agreement`, `log_metric`, `set_tab`, etc.), ready for future modularisation into independent Python modules such as `metrics.py`, `formatting.py`, and `review.py`.  
 
 **Impact:** This design supports eventual migration to a microservice or container-based architecture under Docker/Kubernetes.
-```
-
 
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
