@@ -572,187 +572,94 @@ Sample Output (as Displayed in the Application):
 <img width="1832" height="78" alt="image" src="https://github.com/user-attachments/assets/f610e13d-28bc-496a-932c-1ffc84661256" />
 
 
-# Major Fixes and Enhancements Implemented
-
-## 1. Persistent Streamlit Session and Tab State
-**Problem:** Each time a form was submitted or a file was uploaded, Streamlit re-executed the entire script, automatically switching the interface back to the first tab (“Draft New Agreement”). This caused user workflow interruptions and loss of context during review.  
-
-**Fix:** Replaced `st.tabs()` with a session-controlled `st.radio` selector and maintained the selected tab through `st.session_state.active_tab`. A lightweight helper function `set_tab()` was added to update the state programmatically during interactions such as file uploads or form submissions.  
-
-**Impact:** The interface now remains on the selected tab (“Review & Fix Agreement” or “Draft New Agreement”) even after re-runs, ensuring a smooth and uninterrupted user experience.
-
----
-
-## 2. Scoped Form Submission Handling
-**Problem:** The variable `submitted` was declared outside its logical scope, causing runtime errors when the app switched to the review tab (where the variable was undefined).  
-
-**Fix:** Moved the `if submitted:` logic fully inside the “Draft New Agreement” section to keep it context-aware and isolate the two workflows.  
-
-**Impact:** Prevented `NameError` exceptions, improved code clarity, and aligned the control flow with Streamlit’s reactive execution model.
-
----
-
-## 3. Streamlit Session Persistence for Review Results
-**Problem:** Uploaded documents and generated review outputs were lost whenever the user switched tabs or re-uploaded files.  
-
-**Fix:** Introduced `st.session_state` variables to persist uploaded files and intermediate results between app re-runs.  
-
-**Impact:** The review analysis (summary, risk classification, and amendment suggestions) now persists across navigation, eliminating redundant reprocessing.
-
----
-
-## 4. Correct Clause Formatting in Word Output
-**Problem:** The generated Word document rendered entire paragraphs in bold instead of only the clause titles, leading to poor readability.  
-
-**Fix:** Enhanced the regex parsing logic in `create_formatted_agreement()` to bold only clause headings such as “WHEREAS”, “NOW THEREFORE”, or numbered sections while keeping the body text normal.  
-
-**Impact:** Legal agreements now adhere to standard formatting conventions and improved readability.
-
----
-
-## 5. Structured LLM Metrics and Logging
-**Problem:** There was no unified mechanism to monitor API usage, latency, or costs for model calls.  
-
-**Fix:** Implemented a comprehensive `log_metric()` function that records latency, token usage, and cost into a structured JSONL file (`metrics_log.jsonl`). Added corresponding counters and summaries in the Streamlit sidebar for real-time visibility.  
-
-**Impact:** Enabled consistent tracking of Gemini and OpenAI API performance, improved observability, and supported transparent cost monitoring.
-
----
-
-## 6. Voice-to-Clause Integration
-**Fix:** Integrated OpenAI Whisper for audio transcription and GPT-4o-mini for automatic conversion of spoken statements into legal clauses.  
-
-**Impact:** Adds accessibility and productivity, allowing users to draft clauses verbally and receive polished legal text automatically.
-
----
-
-## 7. Model Caching and Resource Optimisation
-**Fix:** Applied the `@st.cache_resource` decorator to the DistilBERT risk-classification model to prevent reloading it on every app refresh.  
-
-**Impact:** Significantly reduced startup time and improved overall app responsiveness.
-
----
-
-## 8. Improved Error Handling and User Transparency
-- Enhanced validation for mandatory input fields (landlord, tenant, and property details).  
-- Added detailed error messages for API failures and malformed documents.  
-- Displayed latency and cost metrics after each generation step to improve user trust and system transparency.
-
----
-
-## 9. Backward Compatibility and Non-Disruptive Refactor
-**Fix:** The fixes were implemented without altering any existing functionality or breaking backward compatibility.  
-Core modules for document generation, logging, and review were preserved exactly as before; only tab handling and scope corrections were introduced.  
-
-**Impact:** Ensures continuity in evaluation and consistent behaviour across both local and deployed versions.
-
----
-
-## 10. Future-Ready Modular Architecture
-**Fix:** Code structure has been logically separated into reusable functions (`create_formatted_agreement`, `log_metric`, `set_tab`, etc.), ready for future modularisation into independent Python modules such as `metrics.py`, `formatting.py`, and `review.py`.  
-
-**Impact:** This design supports eventual migration to a microservice or container-based architecture under Docker/Kubernetes.
-
-# Project-to-Assignment Mapping
+# Project–Assignment Mapping
 
 ## Domain Selected
-**What:** LegalTech — residential rental agreements for India (Model Tenancy Act 2021).  
-**Where:** Framing and prompts in `app.py` (tab labels, headings, and prompt text), and document formatter naming.
+The domain chosen for this project is **LegalTech**, focusing on the automation of **residential rental agreements in India** under the *Model Tenancy Act, 2021*.  
+This theme is reflected throughout the application — from the prompts used to draft the agreement to the document formatting, tab names, and legal references that appear in the user interface.
 
 ---
 
-## Two AI Categories Chosen
-**What:** Natural Language Processing (NLP) and Speech Recognition.  
+## AI Categories Used
+The project combines two categories of Artificial Intelligence: **Natural Language Processing (NLP)** and **Speech Recognition**.
 
-**Where:**  
-- **NLP:** Gemini for drafting, summarising, and suggesting amendments; DistilBERT for risk classification.  
-- **Speech:** OpenAI Whisper for transcription; GPT-4o-mini to convert speech into formal legal clauses.
+- The **NLP** component is responsible for generating the rental agreement, providing a 100-word summary, suggesting amendments, and performing risk classification.  
+  This is handled through Google’s *Gemini 2.0 Flash* model and a *DistilBERT* classifier.
 
----
-
-## Five Cohesive Sub-Tasks
-**What:**  
-1. Draft legal agreement (text generation)  
-2. Review and suggest amendments (critique)  
-3. Summarisation (100-word summary)  
-4. Risk classification — SAFE or RISKY (supervised classifier)  
-5. Voice-to-clause (speech → text → legal clause)
-
-**Where:**  
-- **Draft:** `app.py` → “Draft New Agreement” tab (Gemini call)  
-- **Amendments:** `app.py` → “Review & Fix Agreement” tab (Gemini call)  
-- **Summary:** Same tab, additional Gemini call  
-- **Risk:** `load_risk_model()` + `risk_pipe(...)` in `app.py`  
-- **Voice:** Sidebar “Voice to Clause” in `app.py` (Whisper + GPT-4o-mini)
+- The **Speech Recognition** part allows users to speak a clause and have it automatically transcribed and converted into formal legal text.  
+  This is achieved using *OpenAI Whisper* for transcription and *GPT-4o-mini* for converting the transcribed text into a properly worded clause.
 
 ---
 
-## Models / APIs Identified and Used
-**What:**  
-- **Gemini 2.0 Flash** (`models/gemini-2.0-flash`) for generation, summarisation, and amendments.  
-- **DistilBERT SST-2 (Hugging Face)** for baseline risk classification.  
-- **OpenAI Whisper** for transcription and **GPT-4o-mini** for voice-to-clause generation.
+## Core Functional Sub-Tasks
+The project is structured around five coherent and interdependent sub-tasks, all aimed at simplifying the drafting and review of rental agreements:
 
-**Where:**  
-- `app.py` → imports and initialisation (`genai.configure`, `openai.api_key`)  
-- `load_risk_model()` uses Hugging Face Transformers pipeline with model and tokenizer setup.
+1. **Drafting** a complete legal agreement using the Gemini model.  
+2. **Reviewing** the text and suggesting amendments as per the Model Tenancy Act.  
+3. **Summarising** the agreement in concise, readable form.  
+4. **Classifying** the agreement as SAFE or RISKY based on its clauses using the DistilBERT model.  
+5. **Voice-to-Clause conversion**, allowing a spoken statement to be added as a legal clause.
 
----
-
-## Cohesion Towards a Single Objective
-**What:** All sub-tasks combine into one integrated workflow — producing a compliant rental agreement, reviewing it for legal soundness, assessing risk, and allowing voice-based clause input. The formatted `.docx` output completes the workflow.  
-
-**Where:**  
-- Single Streamlit app with two main tabs and a sidebar.  
-- `create_formatted_agreement()` generates the final professional Word document.
+Each of these sub-tasks is implemented within the same Streamlit app:
+- Drafting is done in the *“Draft New Agreement”* tab.  
+- Review, summary, and amendment suggestions are handled in the *“Review & Fix Agreement”* tab.  
+- Risk classification is performed by the `load_risk_model()` function.  
+- The voice-to-clause feature is integrated in the sidebar.
 
 ---
 
-## API-Based, Interactive, Demonstrable Application
-**What:** Interactive Streamlit UI with API calls to Google Generative AI, OpenAI, and Hugging Face. Fully containerised and deployed on AWS EKS with a public LoadBalancer Service.  
+## Models and APIs Integrated
+The application makes use of multiple AI services and models working together:
+- **Gemini 2.0 Flash** is used for all generative tasks such as drafting, summarisation, and amendment suggestions.  
+- **DistilBERT (SST-2)** provides baseline risk classification.  
+- **OpenAI Whisper** performs speech-to-text transcription.  
+- **GPT-4o-mini** reformats the spoken text into a legal clause.
 
-**Where:**  
-- `app.py` → Streamlit UI logic and API calls  
-- `Dockerfile` → containerisation setup  
-- `build_and_deploy.sh` → automated build and EKS rollout  
-- Deployment verified through `kubectl get pods` and `kubectl get svc smartlegal-service`
-
----
-
-## LLMOps Principles with ≥5 Metrics Measured
-**What (measured and surfaced):**  
-- Per-call latency (seconds)  
-- Tokens used (approximate)  
-- Cost estimate (GBP)  
-- Request status (`SUCCESS` / `FAILED`) and error rate (`failed_requests` counter)  
-- Rolling totals and average latency (session-level)  
-- Optional throughput proxy: total requests over session runtime  
-
-**Where:**  
-- `app.py` → central `log_metric()` writes JSONL logs to `metrics_log.jsonl` and `smartlegal_metrics.log`.  
-- Sidebar “LLMOps Metrics Summary” displays:  
-  - Total Requests  
-  - Average Latency  
-  - Failed Requests  
-  - Live table of the latest logged events  
-- Metrics recorded for `DraftAgreement`, `Summarisation`, `AmendmentReview`, `RiskClassification`, and `VoiceToClause`.
+All models are configured and loaded in `app.py`, with API keys securely managed through environment variables and `.env` configuration.
 
 ---
 
-## Fine-Tuned Model: Dataset and Demonstration
-**What (current and planned):**  
-- **Current:** Risk classification uses a public DistilBERT SST-2 baseline for demonstration.  
-- **Planned:** Fine-tune a classifier on legal-domain data (e.g., labelled Indian rental clauses with SAFE vs RISKY tags).  
+## Unified Objective
+All components serve one overarching goal: to assist landlords and tenants in producing a legally compliant, readable, and professionally formatted rental agreement.  
+The workflow begins with generating a draft, moves through automated review and risk assessment, and ends with an exportable `.docx` document created by the `create_formatted_agreement()` function.
 
-**Demonstration Path:**  
-- Host the fine-tuned model (e.g., `vivekbhadra/rental-risk-bert`) on Hugging Face.  
-- Update `load_risk_model()` to load the new repo.  
-- Include before/after accuracy or F1 metrics in README with evidence (screenshots or a short demo video).  
+---
 
-**Where:**  
-- `app.py` → `load_risk_model()` will only require a model path update (no UI changes).  
-- Existing `log_metric()` will continue capturing RiskClassification events automatically.  
-- Optional: Add visualisations like label distribution or confidence histogram in later versions.
+## API-Based, Deployable Application
+The solution is designed as an **interactive Streamlit web application** that communicates with multiple AI APIs.  
+It has been fully **containerised using Docker** and **deployed on AWS EKS (Elastic Kubernetes Service)**.  
+The build and deployment process is automated via the `build_and_deploy.sh` script, which handles Docker image creation, ECR push, and Kubernetes rollout verification.
+
+Deployment validation is done using `kubectl` commands, confirming that pods and the public LoadBalancer service are active.
+
+---
+
+## LLMOps and Observability
+A key feature of this project is its emphasis on **LLMOps metrics** for transparency and operational insight.  
+For every AI call, the system records:
+- Latency (in seconds)  
+- Token usage  
+- Estimated cost (in GBP)  
+- Request status (success or failure)  
+- Average latency and failure rate over time  
+
+These metrics are logged to `metrics_log.jsonl` and also displayed live in the Streamlit sidebar.  
+The `log_metric()` function standardises this process for all core operations, including drafting, summarisation, amendment review, risk classification, and voice-to-clause generation.
+
+---
+
+## Fine-Tuned Model and Future Work
+At present, the risk classifier uses a general-purpose DistilBERT model trained on sentiment data.  
+In the next phase, this will be replaced with a **fine-tuned legal-domain model** trained on labelled Indian rental agreements or clause datasets (e.g., SAFE vs RISKY clauses).
+
+Once fine-tuned, the model will be hosted on Hugging Face (for example, `vivekbhadra/rental-risk-bert`) and integrated into the existing `load_risk_model()` function without changing the UI.  
+Performance improvements (accuracy, F1 score) will be demonstrated through a brief comparison and included in the project report.
+
+---
+
+## Summary
+This project presents a cohesive, AI-driven workflow — combining natural language generation, legal reasoning, speech processing, and monitoring — within a single, deployable web application.  
+Every sub-task contributes directly to the central objective of creating, reviewing, and refining legally compliant rental agreements in an efficient and user-friendly manner.
 
 
 **Team Note:**  
