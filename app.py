@@ -142,12 +142,12 @@ def create_formatted_agreement(draft_text, tenant, landlord):
     # --- (4) Added DOB and Address fields ---
     table.cell(0, 0).text = (
         f"By the Landlord:\n\n(Signature)\n\n{landlord}\n"
-        f"DOB: {st.session_state.get('landlord_dob', '')}\n"
+        f"DOB: {st.session_state.get('landlord_dob_input', '')}\n"
         f"Address: {st.session_state.get('landlord_address', '')}"
     )
     table.cell(0, 1).text = (
         f"By the Tenant:\n\n(Signature)\n\n{tenant}\n"
-        f"DOB: {st.session_state.get('tenant_dob', '')}\n"
+        f"DOB: {st.session_state.get('tenant_dob_input', '')}\n"
         f"Address: {st.session_state.get('tenant_address', '')}"
     )
     # ---------------------------------------
