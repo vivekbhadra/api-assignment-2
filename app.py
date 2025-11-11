@@ -63,15 +63,12 @@ def log_metric(event_type, latency, tokens, cost, status="SUCCESS", model="gemin
         "cost_gbp": cost,
         "status": status,
     }
-    # Append to JSONL
     with open(LOG_FILE, "a") as f:
         f.write(json.dumps(entry) + "\n")
-    # Also to streamlit sidebar counters
     if status == "SUCCESS":
         _bump_success(latency)
     else:
         _bump_failure()
-    # System log file
     logging.info(entry)
 
 # =========================
@@ -80,7 +77,6 @@ def log_metric(event_type, latency, tokens, cost, status="SUCCESS", model="gemin
 def create_formatted_agreement(draft_text, tenant, landlord):
     doc = Document()
 
-    # Title
     title = doc.add_paragraph("RENTAL AGREEMENT")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = title.runs[0]
@@ -88,49 +84,73 @@ def create_formatted_agreement(draft_text, tenant, landlord):
     run.font.name = "Times New Roman"
     run.font.size = Pt(16)
 
-    # Subtitle
     subtitle = doc.add_paragraph("(Under the Model Tenancy Act, 2021)")
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.runs[0].font.size = Pt(12)
-    doc.add_paragraph()  # spacing
+    doc.add_paragraph()
 
-    # Normal style
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Times New Roman"
     normal_style.font.size = Pt(12)
     normal_style.paragraph_format.line_spacing = 1.15
 
-    # === Clean and process text ===
     clean_text = re.sub(r"#+", "", draft_text)
     clean_text = re.sub(r"\*\*", "", clean_text)
     lines = [ln.strip() for ln in clean_text.split("\n") if ln.strip()]
 
     for line in lines:
-        if re.match(r"^(WHEREAS|NOW THEREFORE|IN WITNESS|THIS RENTAL AGREEMENT|BETWEEN|AND|IMPORTANT NOTES|SIGNED)", line, re.IGNORECASE):
-            p = doc.add_paragraph(line)
-            r = p.runs[0]
-            r.bold = True
+        heading_match = re.match(r"^(WHEREAS|NOW THEREFORE|IN WITNESS|THIS RENTAL AGREEMENT|BETWEEN|AND|IMPORTANT NOTES|SIGNED)(.*)", line, re.IGNORECASE)
+        if heading_match:
+            keyword = heading_match.group(1).strip()
+            rest = heading_match.group(2).strip()
+
+            p = doc.add_paragraph()
+            run_bold = p.add_run(keyword)
+            run_bold.bold = True
+
+            if rest:
+                p.add_run(" " + rest)
+
             p.paragraph_format.space_before = Pt(8)
             p.paragraph_format.space_after = Pt(4)
-        elif re.match(r"^[0-9]+\.", line):  # numbered clauses
-            p = doc.add_paragraph(line)
+
+        elif re.match(r"^[0-9]+\.", line):
+            # Match patterns like "1. Rent: The monthly rent ..."
+            clause_match = re.match(r"^([0-9]+\.\s*)([^:]+)(:?\s*)(.*)", line)
+            p = doc.add_paragraph()
             p.paragraph_format.left_indent = Inches(0.3)
-            r = p.runs[0]
-            r.bold = True
             p.paragraph_format.space_before = Pt(4)
             p.paragraph_format.space_after = Pt(2)
             p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+            if clause_match:
+                num = clause_match.group(1)          # "1. "
+                title = clause_match.group(2).strip()  # "Rent"
+                after_colon = clause_match.group(3)   # ":" or whitespace
+                rest = clause_match.group(4).strip()  # rest of the text
+
+                p.add_run(num)  # number normal
+                bold_run = p.add_run(title)
+                bold_run.bold = True
+                if after_colon:
+                    p.add_run(after_colon)
+                if rest:
+                    p.add_run(rest)
+            else:
+                # fallback if pattern not matched
+                p.add_run(line)
+
         elif line.startswith("*"):
             clean = line.lstrip("* ").strip()
             p = doc.add_paragraph(clean, style="List Bullet")
             p.paragraph_format.left_indent = Inches(0.6)
+
         else:
             p = doc.add_paragraph(line)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             p.paragraph_format.left_indent = Inches(0.25)
             p.paragraph_format.space_after = Pt(6)
 
-    # Signature block
     doc.add_page_break()
     doc.add_paragraph(
         "IN WITNESS WHEREOF, the parties hereto have executed this Agreement.",
@@ -139,7 +159,6 @@ def create_formatted_agreement(draft_text, tenant, landlord):
     table = doc.add_table(rows=2, cols=2)
     table.autofit = True
 
-    # --- (4) Added DOB and Address fields ---
     table.cell(0, 0).text = (
         f"By the Landlord:\n\n(Signature)\n\n{landlord}\n"
         f"DOB: {st.session_state.get('landlord_dob_input', '')}\n"
@@ -150,7 +169,6 @@ def create_formatted_agreement(draft_text, tenant, landlord):
         f"DOB: {st.session_state.get('tenant_dob_input', '')}\n"
         f"Address: {st.session_state.get('tenant_address', '')}"
     )
-    # ---------------------------------------
 
     filename = f"Formatted_Rental_{tenant}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     doc.save(filename)
@@ -178,22 +196,18 @@ risk_pipe = load_risk_model()
 st.title("SmartLegal Rental Assistant")
 st.markdown("**Draft • Review • Fix — Based on Model Tenancy Act 2021**")
 
-#tab1, tab2 = st.tabs(["Draft New Agreement", "Review & Fix Agreement"])
-# Persist active tab in session_state to prevent focus reset
-# --- Graceful persistent tab selection ---
+# --- Persistent tab handling ---
 tab_names = ["Draft New Agreement", "Review & Fix Agreement"]
-
-# Show tabs as radio buttons but styled like tabs
 selected_tab = st.session_state.get("selected_tab", tab_names[0])
-selected_tab = st.radio(
-    "Navigation",
-    tab_names,
-    horizontal=True,
-    index=tab_names.index(selected_tab),
-    key="tab_selector"
-)
-
+selected_tab = st.radio("Navigation", tab_names, horizontal=True,
+                        index=tab_names.index(selected_tab), key="tab_selector")
 st.session_state.selected_tab = selected_tab
+
+# --- Persistent file + results state ---
+if "uploaded_file" not in st.session_state:
+    st.session_state.uploaded_file = None
+if "review_results" not in st.session_state:
+    st.session_state.review_results = {}
 
 # =========================
 # TAB 1: Draft New Agreement
@@ -201,47 +215,31 @@ st.session_state.selected_tab = selected_tab
 if selected_tab == "Draft New Agreement":
     st.header("Create New Rental Agreement")
 
-    # Input form (prevents field refresh glitches)
     with st.form("rental_form", clear_on_submit=False):
         landlord = st.text_input("Landlord Name", key="landlord_name")
         landlord_address = st.text_area("Landlord Address", key="landlord_address")
-        landlord_dob = st.date_input(
-            "Landlord Date of Birth",
-            key="landlord_dob_input",
-            min_value=date(1900, 1, 1),
-            max_value=date.today()
-        )
+        landlord_dob = st.date_input("Landlord Date of Birth", key="landlord_dob_input",
+                                     min_value=date(1900, 1, 1), max_value=date.today())
 
         tenant = st.text_input("Tenant Name", key="tenant_name")
         tenant_address = st.text_area("Tenant Address", key="tenant_address")
-        tenant_dob = st.date_input(
-            "Tenant Date of Birth",
-            key="tenant_dob_input",
-            min_value=date(1900, 1, 1),
-            max_value=date.today()
-        )
+        tenant_dob = st.date_input("Tenant Date of Birth", key="tenant_dob_input",
+                                   min_value=date(1900, 1, 1), max_value=date.today())
 
         rent = st.number_input("Monthly Rent ₹", min_value=1000, key="rent_amount")
         deposit = st.number_input("Security Deposit ₹", min_value=0, key="deposit_amount")
         address = st.text_area("Property Address", key="property_address")
-        start = st.date_input(
-            "Start Date",
-            key="lease_start_input",
-            min_value=date.today(),
-            max_value=date(2100, 12, 31)
-        )
+        start = st.date_input("Start Date", key="lease_start_input",
+                              min_value=date.today(), max_value=date(2100, 12, 31))
         months = st.selectbox("Duration", ["11 months", "2 years", "3 years"], key="lease_duration")
         amenities = st.text_area("Amenities (optional)", key="amenities_text")
 
-        # Ensure the submit button is inside the form
         submitted = st.form_submit_button("Generate Agreement")
 
     if submitted:
-        # Validate mandatory fields
         if not all([landlord, landlord_address, landlord_dob, tenant, tenant_address, tenant_dob, address]):
             st.error("Please fill in all mandatory fields: Landlord and Tenant names, addresses, dates of birth, and property address.")
         else:
-            # Proceed with agreement generation
             with st.spinner('Generating rental agreement... Please wait.'):
                 prompt = f"""
                 Draft a complete rental agreement under the Model Tenancy Act 2021 with the following details:
@@ -274,112 +272,101 @@ if selected_tab == "Draft New Agreement":
                     t0 = time.time()
                     response = model.generate_content(prompt)
                     t1 = time.time()
-
                     draft = (response.text or "").strip()
 
-                    # Remove generic prefixes like “Sure/Okay/Here is…”
                     for prefix in ("sure", "okay", "here", "below", "this is"):
                         if draft.lower().startswith(prefix):
                             parts = draft.split("\n", 1)
                             draft = parts[1].strip() if len(parts) > 1 else draft
                             break
 
-                    # Log metrics
                     latency = round(t1 - t0, 2)
                     token_count = len(prompt.split()) + len(draft.split())
                     cost = round(token_count * 0.0005 / 1000, 6)
-
                     st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
                     log_metric("DraftAgreement", latency, token_count, cost, status="SUCCESS")
-
                 except Exception as e:
                     st.error(f"Gemini API error: {e}")
                     draft = "Unable to generate agreement text."
                     log_metric("DraftAgreement", 0, 0, 0, status="FAILED")
 
-            # Display generated content
             st.success("Agreement Drafted Successfully!")
             st.text_area("Preview", draft, height=400, key="draft_preview")
 
-            #st.session_state["landlord_dob"] = landlord_dob
-            #st.session_state["tenant_dob"] = tenant_dob
-            #st.session_state["landlord_address"] = landlord_address
-            #st.session_state["tenant_address"] = tenant_address
-
-            # Generate formatted document
             with st.spinner('Creating formatted document...'):
                 file_name = create_formatted_agreement(draft, tenant, landlord)
 
             with open(file_name, "rb") as f:
-                st.download_button(
-                    label="Download Formatted Word File",
-                    data=f,
-                    file_name=file_name,
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                )
+                st.download_button(label="Download Formatted Word File",
+                                   data=f, file_name=file_name,
+                                   mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 # =========================
 # TAB 2: Review & Fix Agreement
 # =========================
 elif selected_tab == "Review & Fix Agreement":
     st.header("Review & Suggest Amendments")
-    uploaded = st.file_uploader(
-        "Upload PDF / DOCX / TXT",
-        type=["pdf", "docx", "txt"],
-        key="review_uploader",
-    )
 
-    if uploaded:
-        # Show loader for text extraction
-        with st.spinner('Processing uploaded document...'):
-            # Extract text
-            if uploaded.type == "application/pdf":
-                text = " ".join([(p.extract_text() or "") for p in PdfReader(uploaded).pages])
-            elif uploaded.type in (
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "application/msword",
-            ):
-                d = docx.Document(uploaded)
-                text = "\n".join([p.text for p in d.paragraphs])
-            else:
-                text = uploaded.read().decode("utf-8", errors="ignore")
+    uploaded = st.file_uploader("Upload PDF / DOCX / TXT",
+                                type=["pdf", "docx", "txt"], key="review_uploader")
+
+    if uploaded is not None:
+        st.session_state.uploaded_file = uploaded
+
+    uploaded_file = st.session_state.uploaded_file
+
+    if uploaded_file:
+        if "text" not in st.session_state.review_results:
+            with st.spinner('Processing uploaded document...'):
+                if uploaded_file.type == "application/pdf":
+                    text = " ".join([(p.extract_text() or "") for p in PdfReader(uploaded_file).pages])
+                elif uploaded_file.type in (
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/msword",
+                ):
+                    d = docx.Document(uploaded_file)
+                    text = "\n".join([p.text for p in d.paragraphs])
+                else:
+                    text = uploaded_file.read().decode("utf-8", errors="ignore")
+            st.session_state.review_results["text"] = text
+        else:
+            text = st.session_state.review_results["text"]
 
         model = genai.GenerativeModel("models/gemini-2.0-flash")
 
-        # Summary + metrics with loader
-        with st.spinner('Generating summary...'):
-            try:
+        # Summary
+        if "summary" not in st.session_state.review_results:
+            with st.spinner('Generating summary...'):
                 t0 = time.time()
-                summary = model.generate_content(
-                    f"Summarize this rental agreement in 100 words:\n{text[:4000]}"
-                ).text
+                summary = model.generate_content(f"Summarize this rental agreement in 100 words:\n{text[:4000]}").text
                 t1 = time.time()
                 latency_summary = round(t1 - t0, 2)
                 tokens_summary = len(summary.split()) + len(text.split()[:4000])
                 cost_summary = round(tokens_summary * 0.0005 / 1000, 6)
-                
-                st.subheader("Summary")
-                st.text_area("Summary Preview", summary, height=150, key="review_summary")
-                st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
+                st.session_state.review_results["summary"] = summary
+                st.session_state.review_results["summary_metrics"] = (latency_summary, tokens_summary, cost_summary)
                 log_metric("Summarisation", latency_summary, tokens_summary, cost_summary, status="SUCCESS")
-            except Exception as e:
-                st.error(f"Gemini summary error: {e}")
-                log_metric("Summarisation", 0, 0, 0, status="FAILED")
 
-        # Risk classifier with loader
-        with st.spinner('Analyzing risk level...'):
-            try:
+        summary = st.session_state.review_results["summary"]
+        latency_summary, tokens_summary, cost_summary = st.session_state.review_results["summary_metrics"]
+        st.subheader("Summary")
+        st.text_area("Summary Preview", summary, height=150, key="review_summary")
+        st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
+
+        # Risk
+        if "risk" not in st.session_state.review_results:
+            with st.spinner('Analyzing risk level...'):
                 risk = risk_pipe(text[:10000])[0]
-                st.subheader("Risk Level")
-                st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+                st.session_state.review_results["risk"] = risk
                 log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
-            except Exception as e:
-                st.error(f"Risk model error: {e}")
-                log_metric("RiskClassification", 0, 0, 0, status="FAILED", model="distilbert-sst2")
 
-        # Amendments + metrics with loader
-        with st.spinner('Generating amendment suggestions...'):
-            try:
+        risk = st.session_state.review_results["risk"]
+        st.subheader("Risk Level")
+        st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+
+        # Amendments
+        if "amendments" not in st.session_state.review_results:
+            with st.spinner('Generating amendment suggestions...'):
                 t0 = time.time()
                 amendments = model.generate_content(
                     f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
@@ -388,16 +375,14 @@ elif selected_tab == "Review & Fix Agreement":
                 latency_amend = round(t1 - t0, 2)
                 tokens_amend = len(amendments.split()) + len(text.split()[:5000])
                 cost_amend = round(tokens_amend * 0.0005 / 1000, 6)
-                
-                st.subheader("Suggested Amendments")
-                st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
-                st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
+                st.session_state.review_results["amendments"] = (amendments, latency_amend, tokens_amend, cost_amend)
                 log_metric("AmendmentReview", latency_amend, tokens_amend, cost_amend, status="SUCCESS")
-            except Exception as e:
-                st.error(f"Gemini amendment error: {e}")
-                log_metric("AmendmentReview", 0, 0, 0, status="FAILED")
 
-        # Successful queries counter
+        amendments, latency_amend, tokens_amend, cost_amend = st.session_state.review_results["amendments"]
+        st.subheader("Suggested Amendments")
+        st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
+        st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
+
         st.session_state.success_count = st.session_state.get("success_count", 0) + 1
         st.sidebar.metric("Total Successful Queries", st.session_state.success_count)
 
@@ -419,7 +404,6 @@ with st.sidebar:
                 }],
             ).choices[0].message.content
             st.success(clause)
-            # Approx metrics for voice step (no latency tracked here)
             log_metric("VoiceToClause", 0, len(transcript.split()), 0.0001, status="SUCCESS", model="whisper+gpt-4o-mini")
         except Exception as e:
             st.error(f"Voice-to-clause error: {e}")
