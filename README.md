@@ -486,6 +486,92 @@ This ensures large models and clients are only initialised once per container.
 After these optimisations, the application starts and becomes accessible within seconds of rollout.  
 Subsequent restarts or updates now require minimal downtime, and the EKS cluster no longer experiences heavy image-pulling delays.  
 
+## LLMOps Metrics and Observability 
+To ensure the SmartLegal Rental Assistant adheres to LLMOps principles, several performance and operational metrics were integrated into the system. These metrics allow continuous monitoring of model responsiveness, reliability, and resource efficiency. The design objective was to measure at least five relevant metrics — namely latency, token count, cost estimation, model confidence, and successful query count — in line with the assignment requirement.  
+
+### Latency Measurement
+Latency represents the total time taken by a generative AI model to process an input prompt and return a response. It serves as a key performance indicator of model responsiveness.  
+The script records timestamps before and after each model call using the time module, then computes the elapsed time.  
+```
+start_time = time.time()
+response = model.generate_content(prompt)
+end_time = time.time()
+latency = round(end_time - start_time, 2)
+```
+This metric is calculated for every major AI operation — including agreement drafting, summary generation, and amendment suggestion. It is then displayed to the user through Streamlit’s caption interface:  
+```
+st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
+```
+The latency value helps evaluate the model’s efficiency and responsiveness under various prompt sizes.  
+
+### Token Count Estimation
+The token count approximates the total number of tokens (input + output) processed by the model. While approximate, it provides a useful proxy for computational workload and helps estimate cost.  
+```
+token_count = len(prompt.split()) + len(draft.split())
+```
+This counts the number of whitespace-separated words in both the prompt and the generated output. Although this is a rough estimate, it closely reflects the number of processed tokens in most English-language LLMs.
+Token count is particularly relevant when calculating the overall cost per query, as API billing is typically token-based.  
+
+### Cost Estimation
+Cost estimation provides awareness of the approximate monetary cost incurred per API call. It reinforces responsible AI use by allowing users to see how model interaction scales with input size.  
+```
+cost = round(token_count * 0.0005 / 1000, 6)
+```
+A constant multiplier (0.0005) is used to represent a hypothetical cost-per-token factor in British pounds. Dividing by 1000 gives an estimated cost for the transaction.  
+Displaying this value in the Streamlit interface encourages transparency and awareness of operational expenditure.   
+Example output:  
+```
+Latency: 4.23s | Tokens: 1482 | Cost: £0.00074
+```
+### Model Confidence (Risk Classification Score)
+For the “Review & Fix Agreement” module, a BERT-based classifier was integrated to assess the legal risk level of the uploaded agreement.  
+The confidence score from this model represents the classification confidence — an essential metric for evaluating accuracy and reliability.  
+```
+risk = risk_pipe(text[:10000])[0]
+st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+```
+The pipeline returns both a label (“SAFE” or “RISKY”) and a confidence score between 0 and 1.  
+This quantitative value provides a direct indicator of model certainty, fulfilling the requirement for a quality or accuracy-related metric.  
+Example display:  
+```
+Risk Level: RISKY (Confidence: 82.5%)
+```
+### Successful Query Count
+This metric tracks how many AI queries have been successfully executed during the current user session. It reflects application reliability and user interaction volume.  
+```
+if "success_count" not in st.session_state:
+    st.session_state.success_count = 0
+st.session_state.success_count += 1
+st.sidebar.metric("Total Successful Queries", st.session_state.success_count)
+```
+By using st.session_state, the value persists throughout the Streamlit session. Each successful AI call increments the counter, and the cumulative total is displayed on the sidebar as a dynamic metric:  
+```
+Total Successful Queries: 7
+```
+This provides a lightweight observability mechanism for tracking real-time usage during demonstrations or testing.  
+
+### Metric Display and Observability
+All collected metrics are integrated into the Streamlit interface, ensuring immediate visibility. The use of captions and sidebar metrics enhances interpretability without needing external dashboards.  
+For instance, after a successful generation task, the following line renders the real-time metrics below the output text area:  
+```
+st.caption(f"Latency: {latency}s | Tokens: {token_count} | Cost: £{cost}")
+```
+Similarly, risk classification confidence and total query count appear within separate submodules of the application.  
+
+## LLMOps Significance
+The integration of these five metrics transforms the application from a simple AI utility into an observable and measurable LLMOps system.
+It enables:
+* Real-time tracking of model performance.
+* Transparency in cost and efficiency.
+* Quantitative assessment of model accuracy and application reliability.
+This approach aligns with modern LLMOps practices, where each AI interaction is monitored not only for functional correctness but also for operational health and cost-effectiveness.
+Sample Output (as Displayed in the Application):
+
+<img width="240" height="724" alt="image" src="https://github.com/user-attachments/assets/b73f9adf-1fe8-4e47-a78a-cc4eccf9ec79" />  
+
+<img width="1832" height="78" alt="image" src="https://github.com/user-attachments/assets/f610e13d-28bc-496a-932c-1ffc84661256" />
+
+
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
 
