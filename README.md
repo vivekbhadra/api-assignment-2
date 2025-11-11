@@ -386,7 +386,7 @@ Each pod had its own isolated filesystem, so the .docx file generated on one pod
 vim smartlegal-deployment.yaml
 ```
 Change:  
-``
+```
 spec:
   replicas: 2
 ```
@@ -429,7 +429,6 @@ def upload_to_s3(file_path):
     s3.upload_file(file_path, BUCKET_NAME, filename)
     return f"https://{BUCKET_NAME}.s3.eu-west-2.amazonaws.com/{filename}"
 
-# After generating your file:
 file_path = f"Formatted_Rental_{tenant_name}.docx"
 s3_url = upload_to_s3(file_path)
 st.success("File successfully generated and uploaded.")
@@ -437,6 +436,55 @@ st.markdown(f"[Download {file_path}]({s3_url})", unsafe_allow_html=True)
 ```
 Then create the S3 bucket once:
 Now, every generated .docx is uploaded and can be downloaded reliably from any pod.
+
+## Load Time Optimisation
+The SmartLegal app initially took several minutes to load when deployed on EKS.  
+This delay was caused by a large Docker image (~4.5 GB), slow container startup, Streamlit’s library initialisation overhead, and LoadBalancer warm-up time.
+
+### Analysis
+* The key contributors to the slow startup were:  
+* The original image included GPU-enabled torch and transformers packages, which added gigabytes of unnecessary CUDA and cuDNN binaries.  
+* Each container had to pull the massive image from ECR before starting.  
+* Streamlit loaded all libraries (including AI models) at launch instead of lazily on demand.  
+* The AWS LoadBalancer required several minutes to initialise and register healthy targets.  
+
+### Optimisation Steps
+* Slimmed the Docker Image:  
+* Replaced python:3.10 base image with python:3.10-slim.  
+* Removed unused tools and dependencies (git, curl, etc.).  
+* Created a clean requirements.txt limited to necessary libraries only.  
+* Reintroduced Torch and Transformers (CPU-only):  
+* Installed lightweight CPU wheels from the PyTorch CPU repository:
+
+```
+torch==2.3.0+cpu
+transformers==4.44.0
+--find-links https://download.pytorch.org/whl/cpu/torch_stable.html
+```
+This kept AI functionality intact while reducing image size from ~4.5 GB to ~1.2 GB.
+
+### Optimised Docker Build Process  
+* Used layer caching by copying and installing requirements.txt first.  
+* Removed the apt-get upgrade step to avoid unnecessary system bloat.  
+* Used --no-cache-dir in pip installs to prevent wheel caching inside the image.
+
+### Improved Streamlit Initialisation  
+Added caching for heavy imports using:
+```
+@st.cache_resource
+def load_clients():
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    return genai, openai
+```
+This ensures large models and clients are only initialised once per container.
+
+### Deployment Improvements
+* Used a single replica for consistent performance during testing.  
+* Retained the LoadBalancer but accepted its initial warm-up delay (only affects first rollout).
+
+After these optimisations, the application starts and becomes accessible within seconds of rollout.  
+Subsequent restarts or updates now require minimal downtime, and the EKS cluster no longer experiences heavy image-pulling delays.  
 
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
