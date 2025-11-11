@@ -386,7 +386,7 @@ Each pod had its own isolated filesystem, so the .docx file generated on one pod
 vim smartlegal-deployment.yaml
 ```
 Change:  
-``
+```
 spec:
   replicas: 2
 ```
