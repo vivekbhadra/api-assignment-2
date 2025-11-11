@@ -1,0 +1,10 @@
+streamlit
+google-generativeai
+openai
+python-dotenv
+PyPDF2
+python-docx
+pillow
+transformers
+torch
+
