@@ -648,12 +648,60 @@ The `log_metric()` function standardises this process for all core operations, i
 
 ---
 
-## Fine-Tuned Model and Future Work
-At present, the risk classifier uses a general-purpose DistilBERT model trained on sentiment data.  
-In the next phase, this will be replaced with a **fine-tuned legal-domain model** trained on labelled Indian rental agreements or clause datasets (e.g., SAFE vs RISKY clauses).
+# Fine-tuning the Legal Risk Classifier (CPU)
 
-Once fine-tuned, the model will be hosted on Hugging Face (for example, `vivekbhadra/rental-risk-bert`) and integrated into the existing `load_risk_model()` function without changing the UI.  
-Performance improvements (accuracy, F1 score) will be demonstrated through a brief comparison and included in the project report.
+Create and activate a virtual environment:  
+```
+cd ~/api-assignment-2
+python3 -m venv .venv
+source .venv/bin/activate
+```
+Upgrade pip (recommended):  
+```
+python -m pip install --upgrade pip
+```
+Install required libraries:  
+```
+pip install torch transformers pandas accelerate
+```
+Verify the environment: 
+```
+python check_training_env.py
+```
+Create the training dataset:  
+```
+mkdir -p data
+cat > data/rental_risk_dataset.csv <<'CSV'
+text,label
+"The landlord may evict the tenant without notice if rent is delayed by 5 days.",RISKY
+"The landlord and tenant agree to a one-month notice period for termination.",SAFE
+"Security deposit will be forfeited entirely upon minor damage.",RISKY
+"The landlord must refund the security deposit within fifteen days after lease termination.",SAFE
+"Tenant is responsible for all maintenance including structural repairs.",RISKY
+"The landlord shall handle major repairs while the tenant covers minor maintenance.",SAFE
+"The tenant must pay property tax.",RISKY
+"Either party may terminate the tenancy by giving one-month written notice.",SAFE
+"Rent shall be increased by 20% every six months without negotiation.",RISKY
+"The rent shall be revised only by mutual agreement once a year.",SAFE
+```
+Run fine-tuning and capture logs: 
+```
+python fine_tune_rental_risk.py \
+  --csv data/rental_risk_dataset.csv \
+  --outdir models/rental-risk-bert \
+  --epochs 3 \
+  --batch 8 \
+  --lr 5e-5 \
+  --maxlen 256 \
+  | tee fine_tune_log.txt
+```
+Confirm artefacts: 
+```
+ls -1 models/rental-risk-bert
+# Expect: config.json, pytorch_model.bin, tokenizer.json, train_metrics.json (and related files)
+
+cat models/rental-risk-bert/train_metrics.json
+```
 
 ---
 
