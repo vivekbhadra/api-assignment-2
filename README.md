@@ -648,30 +648,28 @@ The `log_metric()` function standardises this process for all core operations, i
 
 ---
 
-# Here’s the clean README snippet with every install we actually used, in the exact order, so teammates can follow it without detours.
-
-### Fine-tuning the Legal Risk Classifier (CPU)
+# Fine-tuning the Legal Risk Classifier (CPU)
 Create and activate a virtual environment:  
 ```
 cd ~/api-assignment-2
 python3 -m venv .venv
 source .venv/bin/activate
 ```
-Upgrade pip (recommended):
+Upgrade pip (recommended):  
 ```
 python -m pip install --upgrade pip
 ```
-Install required libraries:  
+Install required libraries:   
 ```
 pip install torch transformers pandas accelerate
 ```
-Verify the environment:  
+Verify the environment:   
 ```
 python check_training_env.py
 ```
-# Expected: Torch/Transformers/Pandas versions printed; CUDA may be False on CPU
+Expected: Torch/Transformers/Pandas versions printed; CUDA may be False on CPU.  
 
-Create the training dataset:   
+Create the training dataset:    
 ```
 mkdir -p data
 cat > data/rental_risk_dataset.csv <<'CSV'
@@ -688,7 +686,7 @@ text,label
 "The rent shall be revised only by mutual agreement once a year.",SAFE
 CSV
 ```
-Run fine-tuning and capture logs:
+Run fine-tuning and capture logs:  
 ```
 python fine_tune_rental_risk.py \
   --csv data/rental_risk_dataset.csv \
@@ -699,15 +697,14 @@ python fine_tune_rental_risk.py \
   --maxlen 256 \
   | tee fine_tune_log.txt
 ```
-Confirm artefacts:
+Confirm artefacts:  
 ```
 ls -1 models/rental-risk-bert
 ```
-# Expect: config.json, pytorch_model.bin, tokenizer.json, train_metrics.json (and related files)
+Expect: config.json, pytorch_model.bin, tokenizer.json, train_metrics.json (and related files)  
 ```
-cat models/rental-risk-bert/train_metrics.json
+cat models/rental-risk-bert/train_metrics.json  
 ```
-
 
 **Team Note:**  
 All members are expected to be **available and responsive** over the next few days to ensure smooth completion and coordination of the project.
