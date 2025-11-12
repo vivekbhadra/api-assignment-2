@@ -16,18 +16,39 @@ echo "Cluster: ${CLUSTER_NAME}"
 echo "ECR Repo: ${ECR_URI}"
 echo
 
+# ===== Pre-flight check: Docker daemon accessibility =====
+echo "[0/6] Checking Docker daemon..."
+
+DOCKER_CMD="docker"
+
+if ! ${DOCKER_CMD} info >/dev/null 2>&1; then
+    echo "Docker daemon not accessible as current user. Trying with sudo..."
+    if sudo docker info >/dev/null 2>&1; then
+        DOCKER_CMD="sudo docker"
+        echo "Using sudo for Docker commands."
+    else
+        echo "ERROR: Docker daemon not running or permission denied."
+        echo "Fix: run 'sudo snap start docker' or ensure your user is in the 'docker' group:"
+        echo "  sudo usermod -aG docker \$USER && newgrp docker"
+        echo "Then re-run this script."
+        exit 1
+    fi
+else
+    echo "Docker daemon is accessible."
+fi
+
 # ===== Authenticate to AWS ECR =====
 echo "[1/6] Logging in to ECR..."
-aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+aws ecr get-login-password --region ${AWS_REGION} | ${DOCKER_CMD} login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
 # ===== Build Docker image =====
 echo "[2/6] Building Docker image..."
-docker build -t ${REPO_NAME}-optimised .
+${DOCKER_CMD} build -t ${REPO_NAME}-optimised .
 
 # ===== Tag and push image =====
 echo "[3/6] Pushing image to ECR..."
-docker tag ${REPO_NAME}-optimised:latest ${ECR_URI}
-docker push ${ECR_URI}
+${DOCKER_CMD} tag ${REPO_NAME}-optimised:latest ${ECR_URI}
+${DOCKER_CMD} push ${ECR_URI}
 
 # ===== Update kubeconfig (ensure kubectl connected to correct cluster) =====
 echo "[4/6] Updating kubeconfig for EKS cluster..."
