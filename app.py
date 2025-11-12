@@ -307,15 +307,37 @@ if selected_tab == "Draft New Agreement":
 elif selected_tab == "Review & Fix Agreement":
     st.header("Review & Suggest Amendments")
 
-    uploaded = st.file_uploader("Upload PDF / DOCX / TXT",
-                                type=["pdf", "docx", "txt"], key="review_uploader")
+    uploaded = st.file_uploader(
+        "Upload PDF / DOCX / TXT",
+        type=["pdf", "docx", "txt"],
+        key="review_uploader"
+    )
 
+    # Initialize session state variables
+    if "uploaded_file" not in st.session_state:
+        st.session_state.uploaded_file = None
+    if "review_results" not in st.session_state:
+        st.session_state.review_results = {}
+
+    # Check if a new file is uploaded
     if uploaded is not None:
-        st.session_state.uploaded_file = uploaded
+        # Reset results if a new file is uploaded
+        if (
+            st.session_state.uploaded_file is None
+            or uploaded.name != st.session_state.uploaded_file.name
+            or uploaded.size != st.session_state.uploaded_file.size
+        ):
+            st.session_state.review_results = {}
+            st.session_state.uploaded_file = uploaded
+    else:
+        # If user clears the uploader, reset state
+        st.session_state.uploaded_file = None
+        st.session_state.review_results = {}
 
     uploaded_file = st.session_state.uploaded_file
 
     if uploaded_file:
+        file_key = uploaded_file.name.replace(" ", "_")
         if "text" not in st.session_state.review_results:
             with st.spinner('Processing uploaded document...'):
                 if uploaded_file.type == "application/pdf":
@@ -350,7 +372,7 @@ elif selected_tab == "Review & Fix Agreement":
         summary = st.session_state.review_results["summary"]
         latency_summary, tokens_summary, cost_summary = st.session_state.review_results["summary_metrics"]
         st.subheader("Summary")
-        st.text_area("Summary Preview", summary, height=150, key="review_summary")
+        st.text_area("Summary Preview", summary, height=150, key=f"review_summary_{file_key}")
         st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
 
         # Risk
@@ -369,7 +391,10 @@ elif selected_tab == "Review & Fix Agreement":
             with st.spinner('Generating amendment suggestions...'):
                 t0 = time.time()
                 amendments = model.generate_content(
-                    f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
+                    f"""List missing or incorrect clauses according to Model Tenancy Act 2021.
+                    Do not include any conversational phrases, introductions, or explanations.
+                    {text[:5000]}
+                    """
                 ).text
                 t1 = time.time()
                 latency_amend = round(t1 - t0, 2)
@@ -380,7 +405,8 @@ elif selected_tab == "Review & Fix Agreement":
 
         amendments, latency_amend, tokens_amend, cost_amend = st.session_state.review_results["amendments"]
         st.subheader("Suggested Amendments")
-        st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
+        amendments = re.sub(r"^\s*[\*\-•]\s*", "", amendments, flags=re.MULTILINE)
+        st.text_area("Amendments Preview", amendments, height=200, key=f"review_amendments_{file_key}")
         st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
 
         st.session_state.success_count = st.session_state.get("success_count", 0) + 1
