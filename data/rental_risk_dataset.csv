@@ -1,0 +1,12 @@
+text,label
+"The landlord may evict the tenant without notice if rent is delayed by 5 days.",RISKY
+"The landlord and tenant agree to a one-month notice period for termination.",SAFE
+"Security deposit will be forfeited entirely upon minor damage.",RISKY
+"The landlord must refund the security deposit within fifteen days after lease termination.",SAFE
+"Tenant is responsible for all maintenance including structural repairs.",RISKY
+"The landlord shall handle major repairs while the tenant covers minor maintenance.",SAFE
+"The tenant must pay property tax.",RISKY
+"Either party may terminate the tenancy by giving one-month written notice.",SAFE
+"Rent shall be increased by 20% every six months without negotiation.",RISKY
+"The rent shall be revised only by mutual agreement once a year.",SAFE
+
