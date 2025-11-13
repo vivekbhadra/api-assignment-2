@@ -91,9 +91,9 @@ def main():
     parser.add_argument("--csv", default="data/rental_risk_dataset.csv")
     parser.add_argument("--outdir", default="models/rental-risk-bert")
     parser.add_argument("--base", default="distilbert-base-uncased")
-    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--maxlen", type=int, default=256)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -167,10 +167,14 @@ def main():
         per_device_train_batch_size=args.batch,
         per_device_eval_batch_size=args.batch,
         learning_rate=args.lr,
-        weight_decay=0.01,
+        weight_decay=0.1,
         logging_steps=50,
         seed=args.seed,
         disable_tqdm=False,
+        eval_strategy="epoch",  # <--- Add this
+        save_strategy="epoch",        # <--- Add this
+        load_best_model_at_end=True,  # <--- Add this
+        metric_for_best_model="f1",
     )
 
     # 6) Define compute_metrics callback using our manual function
