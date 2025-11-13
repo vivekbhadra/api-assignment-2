@@ -315,50 +315,87 @@ if selected_tab == "Draft New Agreement":
 elif selected_tab == "Review & Fix Agreement":
     st.header("Review & Suggest Amendments")
 
-    uploaded = st.file_uploader("Upload PDF / DOCX / TXT",
-                                type=["pdf", "docx", "txt"], key="review_uploader")
+    uploaded = st.file_uploader(
+        "Upload PDF / DOCX / TXT",
+        type=["pdf", "docx", "txt"],
+        key="review_uploader"
+    )
 
+    if "file_cache" not in st.session_state:
+        st.session_state.file_cache = {}
+    if "current_file_key" not in st.session_state:
+        st.session_state.current_file_key = None
+
+    # Helper to build a stable file key for caching
+    def make_file_key(name, size):
+        return f"{name.replace(' ', '_')}_{size}"
+
+    # If user uploaded a new file right now, capture it into session_state.file_cache
     if uploaded is not None:
-        st.session_state.uploaded_file = uploaded
+        file_key = make_file_key(uploaded.name, uploaded.size)
+        st.session_state.current_file_key = file_key
 
-    uploaded_file = st.session_state.uploaded_file
+        # If not already cached, read bytes and create cache entry
+        if file_key not in st.session_state.file_cache:
+            with st.spinner("Saving uploaded file to session cache..."):
+                try:
+                    raw = uploaded.getvalue()
+                except Exception:
+                    uploaded.seek(0)
+                    raw = uploaded.read()
+                st.session_state.file_cache[file_key] = {
+                    "name": uploaded.name,
+                    "size": uploaded.size,
+                    "bytes": raw,
+                }
 
-    if uploaded_file:
-        if "text" not in st.session_state.review_results:
-            with st.spinner('Processing uploaded document...'):
-                if uploaded_file.type == "application/pdf":
-                    text = " ".join([(p.extract_text() or "") for p in PdfReader(uploaded_file).pages])
-                elif uploaded_file.type in (
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "application/msword",
-                ):
-                    d = docx.Document(uploaded_file)
-                    text = "\n".join([p.text for p in d.paragraphs])
-                else:
-                    text = uploaded_file.read().decode("utf-8", errors="ignore")
-            st.session_state.review_results["text"] = text
-        else:
-            text = st.session_state.review_results["text"]
+    # If uploader is empty but we have a current_file_key in session, keep using it
+    file_key = st.session_state.current_file_key
+    file_entry = st.session_state.file_cache.get(file_key) if file_key else None
+
+    if not file_entry:
+        st.info("Upload a PDF/DOCX/TXT to review.")
+    else:
+        if "text" not in st.session_state.file_cache[file_key]:
+            with st.spinner("Processing uploaded document..."):
+                data = file_entry["bytes"]
+                lower = file_entry["name"].lower()
+                try:
+                    if lower.endswith(".pdf"):
+                        reader = PdfReader(BytesIO(data))
+                        text = " ".join([(p.extract_text() or "") for p in reader.pages])
+                    elif lower.endswith(".docx") or lower.endswith(".doc"):
+                        bio = BytesIO(data)
+                        d = docx.Document(bio)
+                        text = "\n".join([p.text for p in d.paragraphs])
+                    else:
+                        text = data.decode("utf-8", errors="ignore")
+                except Exception as e:
+                    st.error(f"Document parsing error: {e}")
+                    text = ""
+                st.session_state.file_cache[file_key]["text"] = text
+
+        text = st.session_state.file_cache[file_key].get("text", "")
 
         model = genai.GenerativeModel("models/gemini-2.0-flash")
 
         # Summary
-        if "summary" not in st.session_state.review_results:
-            with st.spinner('Generating summary...'):
+        if "summary" not in st.session_state.file_cache[file_key]:
+            with st.spinner("Generating summary..."):
                 t0 = time.time()
                 summary = model.generate_content(f"Summarize this rental agreement in 100 words:\n{text[:4000]}").text
                 t1 = time.time()
                 latency_summary = round(t1 - t0, 2)
                 tokens_summary = len(summary.split()) + len(text.split()[:4000])
                 cost_summary = round(tokens_summary * 0.0005 / 1000, 6)
-                st.session_state.review_results["summary"] = summary
-                st.session_state.review_results["summary_metrics"] = (latency_summary, tokens_summary, cost_summary)
+                st.session_state.file_cache[file_key]["summary"] = summary
+                st.session_state.file_cache[file_key]["summary_metrics"] = (latency_summary, tokens_summary, cost_summary)
                 log_metric("Summarisation", latency_summary, tokens_summary, cost_summary, status="SUCCESS")
 
-        summary = st.session_state.review_results["summary"]
-        latency_summary, tokens_summary, cost_summary = st.session_state.review_results["summary_metrics"]
+        summary = st.session_state.file_cache[file_key]["summary"]
+        latency_summary, tokens_summary, cost_summary = st.session_state.file_cache[file_key]["summary_metrics"]
         st.subheader("Summary")
-        st.text_area("Summary Preview", summary, height=150, key="review_summary")
+        st.text_area("Summary Preview", summary, height=150, key=f"review_summary_{file_key}")
         st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
 
         # Risk (now on-demand via button)
@@ -367,31 +404,34 @@ elif selected_tab == "Review & Fix Agreement":
         if run_risk:
             with st.spinner('Analyzing risk level...'):
                 risk = risk_pipe(text[:10000])[0]
-                st.session_state.review_results["risk"] = risk
+                st.session_state.file_cache[file_key]["risk"] = risk
                 log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
-
-        if "risk" in st.session_state.review_results:
-            risk = st.session_state.review_results["risk"]
+        if "risk" in st.session_state.file_cache[file_key]:
+            risk = st.session_state.file_cache[file_key]["risk"]
             st.subheader("Risk Level")
             st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
 
         # Amendments
-        if "amendments" not in st.session_state.review_results:
-            with st.spinner('Generating amendment suggestions...'):
+        if "amendments" not in st.session_state.file_cache[file_key]:
+            with st.spinner("Generating amendment suggestions..."):
                 t0 = time.time()
                 amendments = model.generate_content(
-                    f"List missing or incorrect clauses according to Model Tenancy Act 2021:\n{text[:5000]}"
+                    f"""List missing or incorrect clauses according to Model Tenancy Act 2021.
+                    Do not include any conversational phrases, introductions, or explanations.
+                    {text[:5000]}
+                    """
                 ).text
                 t1 = time.time()
                 latency_amend = round(t1 - t0, 2)
                 tokens_amend = len(amendments.split()) + len(text.split()[:5000])
                 cost_amend = round(tokens_amend * 0.0005 / 1000, 6)
-                st.session_state.review_results["amendments"] = (amendments, latency_amend, tokens_amend, cost_amend)
+                amendments = re.sub(r"^\s*[\*\-•]\s*", "", amendments, flags=re.MULTILINE)
+                st.session_state.file_cache[file_key]["amendments"] = (amendments, latency_amend, tokens_amend, cost_amend)
                 log_metric("AmendmentReview", latency_amend, tokens_amend, cost_amend, status="SUCCESS")
 
-        amendments, latency_amend, tokens_amend, cost_amend = st.session_state.review_results["amendments"]
+        amendments, latency_amend, tokens_amend, cost_amend = st.session_state.file_cache[file_key]["amendments"]
         st.subheader("Suggested Amendments")
-        st.text_area("Amendments Preview", amendments, height=200, key="review_amendments")
+        st.text_area("Amendments Preview", amendments, height=200, key=f"review_amendments_{file_key}")
         st.caption(f"Latency: {latency_amend}s | Tokens: {tokens_amend} | Cost: £{cost_amend}")
 
         st.session_state.success_count = st.session_state.get("success_count", 0) + 1
