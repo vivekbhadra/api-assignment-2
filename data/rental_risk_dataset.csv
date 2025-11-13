@@ -1,0 +1,59 @@
+text,label,reason,source
+Security deposit shall not exceed two months’ rent for this residential tenancy.,SAFE,Matches MTA cap for residential deposits.,PRS India – Model Tenancy Act summary
+Tenant shall pay a security deposit equal to six months’ rent for the residential premises.,RISKY,Exceeds MTA cap of two months for residential deposits.,PRS India – Model Tenancy Act summary
+Security deposit is refundable after adjusting unpaid dues; amount capped at two months' rent.,SAFE,Complies with MTA cap; refund with due deductions.,PRS India – Model Tenancy Act summary
+Security deposit is non‑refundable under any circumstances.,RISKY,Contrary to refundable nature after deductions.,PRS India – Model Tenancy Act summary
+"Landlord shall refund the security deposit within 15 days of handing over vacant possession, after deductions if any.",SAFE,Timely refund is aligned with MTA principle of refund at possession.,Factly explainer – MTA 2021
+Security deposit will be refunded within six months after vacating.,RISKY,Unduly delayed refund; MTA expects refund at possession/without undue delay.,Factly explainer – MTA 2021
+"This tenancy is governed by a written agreement specifying rent, term and obligations of both parties.",SAFE,MTA requires written agreement.,PRS India – Model Tenancy Act summary
+The parties agree that no written agreement is necessary; oral terms will suffice.,RISKY,Contradicts MTA requirement for a written agreement.,PRS India – Model Tenancy Act summary
+"Landlord shall give at least 24 hours’ written notice before entering the premises, and enter only between 7am and 8pm.",SAFE,Reasonable notice and hours protect tenant privacy.,"MoHUA Model Tenancy Act, 2021 PDF"
+Landlord may enter the premises at any time without notice for inspection.,RISKY,Unrestricted entry undermines tenant’s privacy.,"MoHUA Model Tenancy Act, 2021 PDF"
+"Landlord is responsible for structural, major and system repairs; tenant handles minor day‑to‑day upkeep.",SAFE,Fair allocation; aligns with MTA schedules intent.,"MoHUA Model Tenancy Act, 2021 PDF"
+"Tenant shall be responsible for all structural and major repairs, including roof and plumbing replacement.",RISKY,Unfair shifting of major repairs to tenant.,Common sample agreements (general practice)
+"If rent remains unpaid for over two consecutive months, landlord may seek eviction through due process.",SAFE,Eviction grounds include prolonged non‑payment.,PRS India – Model Tenancy Act summary
+Landlord may evict the tenant without notice at landlord’s sole discretion.,RISKY,Arbitrary eviction without process/notice.,"MoHUA Model Tenancy Act, 2021 PDF"
+Either party may terminate this tenancy by giving one month’s written notice or equivalent rent in lieu.,SAFE,Reasonable bilateral termination notice.,Common sample agreements (general practice)
+Tenant must give three months’ notice to vacate; landlord may terminate anytime without notice.,RISKY,Unbalanced and arbitrary termination terms.,Common sample agreements (general practice)
+Rent may be revised annually by mutual written consent stated in an addendum.,SAFE,Mutual agreement for revision is fair.,Common sample agreements (general practice)
+"Rent shall increase by 20% every six months automatically, non‑negotiable.",RISKY,"Excessive, unilateral and frequent escalation.",Common sample agreements (general practice)
+Subletting is prohibited without prior written consent of the landlord.,SAFE,Standard consent requirement.,"MoHUA Model Tenancy Act, 2021 PDF"
+Tenant may sublet or assign the premises without informing the landlord.,RISKY,Unrestricted subletting contrary to typical consent requirements.,"MoHUA Model Tenancy Act, 2021 PDF"
+"Tenant shall pay metered consumption charges for electricity, water and gas; landlord shall pay property taxes.",SAFE,Fair split between usage utilities and ownership taxes.,Common sample agreements (general practice)
+Tenant shall bear all municipal property taxes and cesses.,RISKY,Shifts owner’s statutory taxes to tenant.,Common sample agreements (general practice)
+Landlord shall not interfere with tenant’s peaceful enjoyment except as permitted by law and this agreement.,SAFE,Protects tenant’s quiet enjoyment.,"MoHUA Model Tenancy Act, 2021 PDF"
+Landlord may disconnect utilities to compel timely rent payment.,RISKY,Self‑help remedies like utility cutoff are improper.,"MoHUA Model Tenancy Act, 2021 PDF"
+"Tenant shall allow reasonable access for repairs upon 24 hours’ notice, except in emergencies.",SAFE,Balanced access for maintenance.,"MoHUA Model Tenancy Act, 2021 PDF"
+"Tenant must allow access for viewing by prospective tenants at any time, daily.",RISKY,Unreasonable access demand.,Common sample agreements (general practice)
+Any lawful deductions from the security deposit shall be itemised with supporting invoices.,SAFE,Transparency in deductions.,Common sample agreements (general practice)
+Landlord may forfeit the entire security deposit for any minor damage or delay.,RISKY,Disproportionate forfeiture.,PRS India – Model Tenancy Act summary
+Lock‑in period of six months applies to both parties; early termination entails payment of one month’s rent.,SAFE,Balanced lock‑in obligations.,Common sample agreements (general practice)
+Lock‑in period of twelve months applies only to tenant; early vacating forfeits entire deposit and three months’ rent.,RISKY,One‑sided and punitive.,Common sample agreements (general practice)
+Disputes shall be referred first to the State Rent Authority / Court as per applicable law.,SAFE,MTA creates Rent Authority/Court framework.,"MoHUA Model Tenancy Act, 2021 PDF"
+All disputes shall be decided solely by the landlord; tenant waives all legal remedies.,RISKY,Unconscionable waiver of remedies.,"MoHUA Model Tenancy Act, 2021 PDF"
+"If the premises become uninhabitable due to fire or natural calamity not caused by tenant, rent shall abate proportionately.",SAFE,Habitability protection.,Common sample agreements (general practice)
+Tenant must continue paying full rent even if the premises are uninhabitable.,RISKY,Contrary to habitability principles.,Common sample agreements (general practice)
+Routine inspections shall be limited to once per quarter unless otherwise required for repairs.,SAFE,Reasonable inspection frequency.,Common sample agreements (general practice)
+Inspections may be conducted daily at landlord’s discretion.,RISKY,Excessive frequency.,Common sample agreements (general practice)
+Parties shall complete KYC and police verification as per local rules before possession.,SAFE,Good-faith compliance with local practice.,Common sample agreements (general practice)
+No tenant identity documentation will be collected or verified.,RISKY,Avoidance of common KYC/police verification practice.,Common sample agreements (general practice)
+Possession shall be handed over upon payment of advance rent and deposit and after inventory signing.,SAFE,Orderly handover process.,Common sample agreements (general practice)
+Tenant shall vacate immediately upon landlord’s oral request.,RISKY,No written notice or process.,"MoHUA Model Tenancy Act, 2021 PDF"
+Premises shall be used solely for residential purposes by the named occupants.,SAFE,Clear use restriction.,Common sample agreements (general practice)
+Tenant may convert the premises for commercial activity without consent.,RISKY,Change of use without consent.,Common sample agreements (general practice)
+No structural alterations without prior written consent; minor fixtures permitted subject to restoration.,SAFE,Reasonable restriction on alterations.,Common sample agreements (general practice)
+Tenant may demolish internal walls if desired without approval.,RISKY,Structural alterations without consent.,Common sample agreements (general practice)
+"If rent is paid after the due date, a late fee of 1% per month may be charged.",SAFE,Reasonable late fee.,Common sample agreements (general practice)
+Any rent delay shall incur a penalty of 20% per day.,RISKY,Punitive and excessive penalty.,Common sample agreements (general practice)
+Tenant may install additional locks and will provide duplicate keys for emergencies.,SAFE,Security with reasonable landlord access.,Common sample agreements (general practice)
+Landlord shall retain a master key and may enter at will.,RISKY,Violates privacy/quiet enjoyment.,"MoHUA Model Tenancy Act, 2021 PDF"
+Keeping of pets is permitted subject to building by‑laws; tenant responsible for any damage.,SAFE,Balanced pet policy.,Common sample agreements (general practice)
+Pets are absolutely forbidden; violation leads to immediate eviction without process.,RISKY,Disproportionate remedy; no process.,Common sample agreements (general practice)
+"Upon vacating, tenant shall return keys and restore the premises to reasonably clean condition, fair wear and tear excepted.",SAFE,Standard surrender condition.,Common sample agreements (general practice)
+Tenant must repaint and replace all fittings irrespective of condition.,RISKY,Excessive end‑of‑tenancy obligations.,Common sample agreements (general practice)
+Rent shall be paid monthly in advance via bank transfer on or before the 5th day of each month.,SAFE,"Clear, reasonable payment term.",Common sample agreements (general practice)
+Rent shall be paid in cash only to the landlord’s representative without receipt.,RISKY,Lack of traceability.,Common sample agreements (general practice)
+No interest shall accrue on the security deposit; deposit remains refundable.,SAFE,Common practice; not abusive.,Common sample agreements (general practice)
+Security deposit shall accrue interest for landlord’s benefit and not returned to tenant.,RISKY,Confiscatory treatment of deposit.,PRS India – Model Tenancy Act summary
+"Initial term shall be eleven months, renewable by mutual consent.",SAFE,Conventional residential term.,Common sample agreements (general practice)
+Tenant commits to a five‑year fixed term with no right to terminate.,RISKY,Overly rigid term without exit.,Common sample agreements (general practice)
