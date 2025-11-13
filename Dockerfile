@@ -29,6 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app source code (minimal files)
 COPY app.py README.md ./
 
+# Copy fine-tuned model into image
+COPY models/rental-risk-bert ./models/rental-risk-bert
+
 # Environment variables (Streamlit default port)
 ENV PORT=8501
 
