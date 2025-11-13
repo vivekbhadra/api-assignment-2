@@ -182,11 +182,19 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @st.cache_resource
+@st.cache_resource
+@st.cache_resource
 def load_risk_model():
+    """
+    Loads the fine-tuned SmartLegal rental risk classification model.
+    Uses the locally trained DistilBERT model under models/rental-risk-bert/.
+    """
+    LEGAL_MODEL_PATH = os.path.join("models", "rental-risk-bert")
+
     return pipeline(
         "text-classification",
-        model="distilbert-base-uncased-finetuned-sst-2-english",
-        tokenizer="distilbert-base-uncased-finetuned-sst-2-english",
+        model=LEGAL_MODEL_PATH,
+        tokenizer=LEGAL_MODEL_PATH,
         truncation=True,
         max_length=512,
     )
@@ -353,16 +361,19 @@ elif selected_tab == "Review & Fix Agreement":
         st.text_area("Summary Preview", summary, height=150, key="review_summary")
         st.caption(f"Latency: {latency_summary}s | Tokens: {tokens_summary} | Cost: £{cost_summary}")
 
-        # Risk
-        if "risk" not in st.session_state.review_results:
+        # Risk (now on-demand via button)
+        run_risk = st.button("Run Risk Assessment")
+
+        if run_risk:
             with st.spinner('Analyzing risk level...'):
                 risk = risk_pipe(text[:10000])[0]
                 st.session_state.review_results["risk"] = risk
                 log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
 
-        risk = st.session_state.review_results["risk"]
-        st.subheader("Risk Level")
-        st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
+        if "risk" in st.session_state.review_results:
+            risk = st.session_state.review_results["risk"]
+            st.subheader("Risk Level")
+            st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
 
         # Amendments
         if "amendments" not in st.session_state.review_results:
