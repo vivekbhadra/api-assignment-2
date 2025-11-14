@@ -171,9 +171,9 @@ def main():
         logging_steps=50,
         seed=args.seed,
         disable_tqdm=False,
-        eval_strategy="epoch",  # <--- Add this
-        save_strategy="epoch",        # <--- Add this
-        load_best_model_at_end=True,  # <--- Add this
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
         metric_for_best_model="f1",
     )
 
