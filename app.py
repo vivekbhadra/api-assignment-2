@@ -542,7 +542,7 @@ elif selected_tab == "Review & Fix Agreement":
             
             # Display overall risk summary
             if risky_count > 0:
-                st.warning(f"**HIGH RISK:** Detected {risky_count} out of {total_clauses} clauses as problematic.")
+                st.warning(f"Detected {risky_count} out of {total_clauses} clauses as problematic.")
             else:
                 st.success(f"LOW RISK: All {total_clauses} analyzed clauses appear safe.")
             
