@@ -7,13 +7,15 @@ import logging
 from datetime import date
 from datetime import datetime
 from io import BytesIO
+from typing import List, Dict
 
 import streamlit as st
 import google.generativeai as genai
 import openai
 import pandas as pd
+import torch # Added torch import for granular analysis logic
 from dotenv import load_dotenv
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 from PyPDF2 import PdfReader
 import docx
 from docx import Document
@@ -174,6 +176,129 @@ def create_formatted_agreement(draft_text, tenant, landlord):
     doc.save(filename)
     return filename
 
+
+# =========================
+# Splitting the Document for Risk Analysis
+# =========================
+
+LEGAL_MODEL_PATH = os.path.join("models", "rental-risk-bert")
+
+def split_text_into_clauses(text: str) -> List[str]:
+    """
+    Splits the full legal document text into sentences or short clauses,
+    filtering out signatures, headers, and witnessing blocks.
+    """
+    # 1. Split the text into potential clauses using punctuation separators
+    # Ensures splitting occurs at sentence boundaries.
+    clauses = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!|;)\s+(?=[A-Z])', text)
+    
+    # Define keywords/phrases to filter out: headers, footers, and signature blocks
+    filter_patterns = [
+        # Headers/Titles/Metadata/Placeholders
+        r'^\s*(RENTAL AGREEMENT|TENANCY ACT|DOB|Address|Landlord|Tenant|Date of Birth|\[Agreed Number\]|\[Date\]|\[Agreed Amount\])\s*$', 
+        # Witnessing/Execution blocks
+        r'^\s*(IN WITNESS WHEREOF|By the Landlord|By the Tenant|Signature|EXECUTED|AGREEMENT PREAMBLE)\s*',
+        # Clause numbers/short fragments
+        r'^\s*\d+\.\s*$',
+        # Empty lines or very short phrases (under 10 characters)
+        r'^.{0,10}$', 
+        # Section titles that don't end in punctuation
+        r'^(SECTION|ARTICLE|PREAMBLE)\s+\d+',
+    ]
+
+    # 2. Filter the clauses
+    filtered_clauses = []
+    
+    for clause in clauses:
+        clause_clean = clause.strip()
+        
+        # Skip if the clause is too short or is an empty string
+        if len(clause_clean) < 10:
+            continue
+            
+        # Check against all filter patterns
+        is_metadata = False
+        for pattern in filter_patterns:
+            if re.match(pattern, clause_clean, re.IGNORECASE):
+                is_metadata = True
+                break
+        
+        if not is_metadata:
+            filtered_clauses.append(clause_clean)
+
+    return filtered_clauses
+
+@st.cache_resource
+def load_risk_model_for_granular_analysis():
+    """Loads the model and tokenizer explicitly for detailed analysis."""
+    try:
+        # Load the model and tokenizer from the saved directory
+        tokenizer = AutoTokenizer.from_pretrained(LEGAL_MODEL_PATH)
+        model = AutoModelForSequenceClassification.from_pretrained(LEGAL_MODEL_PATH)
+        return tokenizer, model
+    except Exception as e:
+        st.error(f"Failed to load fine-tuned model: {e}")
+        return None, None
+
+def analyze_document_risk_granular(document_text):
+    """
+    Loads the fine-tuned model and analyzes a document clause-by-clause,
+    returning a detailed list of risks.
+    """
+    tokenizer, model = load_risk_model_for_granular_analysis()
+    if not model:
+        return {"error": "Risk model not loaded."}
+
+    # Get the label mappings saved during training
+    id2label = model.config.id2label
+    
+    # 1. Split the document into clauses
+    clauses = split_text_into_clauses(document_text)
+    
+    if not clauses:
+        return {"error": "Could not extract any recognizable clauses for analysis."}
+
+    # 2. Tokenize and predict
+    inputs = tokenizer(
+        clauses,
+        padding=True,
+        truncation=True,
+        max_length=256,
+        return_tensors="pt"
+    )
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    # 3. Process results
+    logits = outputs.logits
+    probabilities = torch.softmax(logits, dim=1).tolist()
+    predictions = torch.argmax(logits, dim=1).tolist()
+    
+    # 4. Compile final analysis
+    analysis_results = []
+    risky_count = 0
+
+    for clause, pred_id, probs in zip(clauses, predictions, probabilities):
+        label = id2label[pred_id]
+        confidence = probs[pred_id]
+        
+        analysis_results.append({
+            "clause": clause,
+            "prediction": label,
+            "confidence": f"{confidence * 100:.2f}%",
+            "is_risky": label == "RISKY"
+        })
+        if label == "RISKY":
+            risky_count += 1
+    
+    return {
+        "summary": f"Total Clauses Analyzed: {len(analysis_results)}. Risky Clauses Detected: {risky_count}.",
+        "details": analysis_results,
+        "risky_count": risky_count
+    }
+
+
 # =========================
 # App Init & Models
 # =========================
@@ -182,15 +307,11 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @st.cache_resource
-@st.cache_resource
-@st.cache_resource
-def load_risk_model():
+def load_risk_pipeline():
     """
     Loads the fine-tuned SmartLegal rental risk classification model.
     Uses the locally trained DistilBERT model under models/rental-risk-bert/.
     """
-    LEGAL_MODEL_PATH = os.path.join("models", "rental-risk-bert")
-
     return pipeline(
         "text-classification",
         model=LEGAL_MODEL_PATH,
@@ -199,7 +320,8 @@ def load_risk_model():
         max_length=512,
     )
 
-risk_pipe = load_risk_model()
+# Load the model explicitly for caching purposes, 
+load_risk_pipeline() 
 
 st.title("SmartLegal Rental Assistant")
 st.markdown("**Draft • Review • Fix — Based on Model Tenancy Act 2021**")
@@ -402,15 +524,42 @@ elif selected_tab == "Review & Fix Agreement":
         run_risk = st.button("Run Risk Assessment")
 
         if run_risk:
-            with st.spinner('Analyzing risk level...'):
-                risk = risk_pipe(text[:10000])[0]
-                st.session_state.file_cache[file_key]["risk"] = risk
-                log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
-        if "risk" in st.session_state.file_cache[file_key]:
-            risk = st.session_state.file_cache[file_key]["risk"]
-            st.subheader("Risk Level")
-            st.write(f"**{risk['label']}** (Confidence: {risk['score']:.1%})")
-
+            with st.spinner('Analyzing risk clause-by-clause...'):
+                analysis_results = analyze_document_risk_granular(text[:10000])
+                
+                if "error" in analysis_results:
+                    st.error(f"Risk analysis error: {analysis_results['error']}")
+                else:
+                    st.session_state.file_cache[file_key]["analysis"] = analysis_results
+                    log_metric("RiskClassification", 0, 0, 0, status="SUCCESS", model="distilbert-sst2")
+            
+        if "analysis" in st.session_state.file_cache[file_key]:
+            analysis_results = st.session_state.file_cache[file_key]["analysis"]
+            risky_count = analysis_results["risky_count"]
+            total_clauses = len(analysis_results["details"])
+            
+            st.subheader("Granular Risk Assessment")
+            
+            # Display overall risk summary
+            if risky_count > 0:
+                st.warning(f"**HIGH RISK:** Detected {risky_count} out of {total_clauses} clauses as problematic.")
+            else:
+                st.success(f"LOW RISK: All {total_clauses} analyzed clauses appear safe.")
+            
+            # Display detailed clause breakdown
+            st.markdown("---")
+            st.markdown("##### Clause-by-Clause Details:")
+            
+            for detail in analysis_results["details"]:
+                clause = detail['clause']
+                pred = detail['prediction']
+                conf = detail['confidence']
+                
+                if pred == "RISKY":
+                    st.error(f"**RISKY ({conf}):** {clause}")
+                else:
+                    st.markdown(f"**SAFE ({conf}):** *{clause}*")
+            
         # Amendments
         if "amendments" not in st.session_state.file_cache[file_key]:
             with st.spinner("Generating amendment suggestions..."):
@@ -475,4 +624,3 @@ with st.sidebar:
             st.info("Metrics log exists but could not be parsed yet.")
     else:
         st.info("No metrics logged yet. Generate an agreement to start.")
-
